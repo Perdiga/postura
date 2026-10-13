@@ -21,15 +21,16 @@ const (
 // Rule is one policy check. The CEL expressions all evaluate to bool and read
 // fact fields as top-level variables plus `cfg` (the rule's merged config).
 type Rule struct {
-	ID       string         `yaml:"id"`
-	Scope    Scope          `yaml:"scope"`
-	Severity string         `yaml:"severity"`
-	Title    string         `yaml:"title"`
-	Pass     string         `yaml:"pass"`         // true => compliant
-	Applies  string         `yaml:"applies_when"` // optional: false => skip (no row)
-	Config   map[string]any `yaml:"config"`       // default knobs, overridable per target
-	Enabled  *bool          `yaml:"enabled"`      // baseline on/off; nil => on. Config can override per target.
-	FixHint  string         `yaml:"fix_hint"`
+	ID         string         `yaml:"id"`
+	Scope      Scope          `yaml:"scope"`
+	Severity   string         `yaml:"severity"`
+	Title      string         `yaml:"title"`
+	Assessment bool           `yaml:"assessment"`
+	Pass       string         `yaml:"pass"`         // true => compliant
+	Applies    string         `yaml:"applies_when"` // optional: false => skip (no row)
+	Config     map[string]any `yaml:"config"`       // default knobs, overridable per target
+	Enabled    *bool          `yaml:"enabled"`      // baseline on/off; nil => on. Config can override per target.
+	FixHint    string         `yaml:"fix_hint"`
 }
 
 // Ruleset is the full ordered list of rules.

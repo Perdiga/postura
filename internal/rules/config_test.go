@@ -1,6 +1,9 @@
 package rules
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func boolPtr(b bool) *bool { return &b }
 
@@ -44,5 +47,100 @@ func TestResolveEnabled(t *testing.T) {
 	c := &Config{Repos: map[string]map[string]map[string]any{"o/r": {"REPO-8": {"enabled": true}}}}
 	if !c.Resolve(off, "", "", "o/r").Enabled {
 		t.Error("REPO-8 should be enabled for o/r")
+	}
+}
+
+func TestLoadConfigAssessments(t *testing.T) {
+	data := []byte(`assessments:
+  as_of: "2026-10-13"
+  max_age_days: 180
+  orgs:
+    acme:
+      ORG-H1:
+        status: compliant
+        evidence: "Restore test documented"
+        reviewed_at: "2026-10-01"
+        reviewed_by: "security-team"
+`)
+	c, err := LoadConfig(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := Rule{ID: "ORG-H1", Severity: "warn"}
+	got := c.Resolve(r, "", "acme", "")
+	assessment, ok := got.Cfg["assessment"].(map[string]any)
+	if !ok {
+		t.Fatalf("assessment config = %T, want map[string]any", got.Cfg["assessment"])
+	}
+	if assessment["status"] != "compliant" || assessment["reviewed_by"] != "security-team" {
+		t.Errorf("resolved assessment = %+v", assessment)
+	}
+	if assessment["stale"] != false {
+		t.Errorf("recent assessment stale = %v, want false", assessment["stale"])
+	}
+}
+
+func TestLoadConfigRejectsInvalidAssessment(t *testing.T) {
+	cases := map[string]string{
+		"invalid status":   `status: approved`,
+		"missing evidence": "status: compliant\nreviewed_at: '2026-10-01'\nreviewed_by: team",
+		"invalid date":     "status: compliant\nevidence: report\nreviewed_at: yesterday\nreviewed_by: team",
+	}
+	for name, fields := range cases {
+		t.Run(name, func(t *testing.T) {
+			data := []byte("assessments:\n  orgs:\n    acme:\n      ORG-H1:\n        " + fields + "\n")
+			if _, err := LoadConfig(data); err == nil {
+				t.Fatal("invalid assessment should fail config loading")
+			}
+		})
+	}
+}
+
+func TestAssessmentTargetSpecificity(t *testing.T) {
+	c := &Config{Assessments: AssessmentConfig{
+		Orgs: map[string]map[string]AssessmentInput{
+			"acme": {"REPO-H1": {Status: "partial", Evidence: "org evidence", ReviewedAt: "2026-10-01", ReviewedBy: "org"}},
+		},
+		Repos: map[string]map[string]AssessmentInput{
+			"acme/payments": {"REPO-H1": {Status: "compliant", Evidence: "repo evidence", ReviewedAt: "2026-10-02", ReviewedBy: "repo"}},
+		},
+	}}
+	got := c.Resolve(Rule{ID: "REPO-H1"}, "", "acme", "acme/payments")
+	assessment := got.Cfg["assessment"].(map[string]any)
+	if assessment["status"] != "compliant" || assessment["reviewed_by"] != "repo" {
+		t.Errorf("repo assessment should override org assessment, got %+v", assessment)
+	}
+}
+
+func TestAssessmentFreshness(t *testing.T) {
+	data := []byte(`assessments:
+  as_of: "2026-10-13"
+  max_age_days: 30
+  orgs:
+    acme:
+      ORG-H1:
+        status: compliant
+        evidence: "Restore plan tested"
+        reviewed_at: "2026-08-01"
+        reviewed_by: "security"
+`)
+	c, err := LoadConfig(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := c.Resolve(Rule{ID: "ORG-H1"}, "", "acme", "")
+	assessment := got.Cfg["assessment"].(map[string]any)
+	if assessment["stale"] != true {
+		t.Fatalf("old assessment stale = %v, want true", assessment["stale"])
+	}
+}
+
+func TestExampleConfigLoads(t *testing.T) {
+	data, err := os.ReadFile("../../examples/config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadConfig(data); err != nil {
+		t.Fatalf("load examples/config.yaml: %v", err)
 	}
 }

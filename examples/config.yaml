@@ -21,3 +21,82 @@ repos:
   acme/legacy-mirror:
     REPO-1: { enabled: false } # read-only mirror; PR-before-merge not applicable
     REPO-4: { enabled: false } # mirror has no upstream Dependabot story
+
+# Human assessments are separate from API-collected facts. Uncomment and fill in
+# entries to score the corresponding rules. Status must be compliant, partial,
+# non_compliant, or not_applicable. Evidence, review date, and reviewer are required.
+#
+# assessments:
+#   as_of: "2026-10-13"
+#   max_age_days: 180
+#   enterprises:
+#     acme-inc:
+#       ENT-6:
+#         status: partial
+#         evidence: "GHAS is licensed for production orgs; coverage review is in progress"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "security-team"
+#   orgs:
+#     acme:
+#       ORG-11:
+#         status: compliant
+#         evidence: "Restore exercise completed; runbook is maintained by SRE"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "security-team"
+#       ORG-12:
+#         status: compliant
+#         evidence: "GitHub Projects tracks delivery work and links to pull requests"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "engineering"
+#       ORG-13:
+#         status: partial
+#         evidence: "Contribution guide exists; cross-team ownership is informal"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "engineering"
+#       ORG-14:
+#         status: compliant
+#         evidence: "Pipeline duration and failure rate reviewed monthly"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "devex"
+#       ORG-15:
+#         status: partial
+#         evidence: "Template repos exist; onboarding still has manual security steps"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "platform-team"
+#       ORG-16:
+#         status: compliant
+#         evidence: "Self-hosted runners are isolated and inaccessible to public repos"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "platform-team"
+#       ORG-17:
+#         status: not_applicable
+#         evidence: "Discussions are disabled by org policy"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "community-team"
+#       ORG-28:
+#         status: partial
+#         evidence: "Owners are reviewed quarterly; member activity review is not yet automated"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "identity-team"
+#       ORG-29:
+#         status: compliant
+#         evidence: "Org SAML is enforced through the corporate identity provider"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "identity-team"
+#       ORG-25:
+#         status: partial
+#         evidence: "OIDC is used for AWS; one legacy deployment still uses a stored credential"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "platform-team"
+#   repos:
+#     acme/payments:
+#       REPO-30:
+#         status: compliant
+#         evidence: "Branch naming is enforced by the repository ruleset"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "maintainers"
+#       REPO-50:
+#         status: compliant
+#         evidence: "Canary rollback was exercised during the last release"
+#         reviewed_at: "2026-10-01"
+#         reviewed_by: "release-engineering"

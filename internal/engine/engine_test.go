@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jackchuka/postura/internal/rules"
@@ -166,5 +167,60 @@ func TestDisableRulePerTarget(t *testing.T) {
 	got := e.Evaluate([]Target{{Name: "o/legacy", Facts: facts}}, cfg, "")
 	if len(got) != 0 {
 		t.Fatalf("disabled rule should emit no finding, got %+v", got)
+	}
+}
+
+func TestHumanAssessmentOutcomesAndEvidence(t *testing.T) {
+	rs := []rules.Rule{{
+		ID: "ORG-11", Scope: rules.ScopeOrg, Severity: "warn", Title: "Recovery plan",
+		Applies: `cfg.assessment.status != "not_applicable"`,
+		Pass:    `cfg.assessment.status == "compliant"`,
+	}}
+	e := mustEngine(t, rules.ScopeOrg, rs, nil)
+	target := Target{Name: "acme", Facts: map[string]any{}}
+	cfg := &rules.Config{Assessments: rules.AssessmentConfig{Orgs: map[string]map[string]rules.AssessmentInput{
+		"acme": {
+			"ORG-11": {Status: "partial", Evidence: "Restore test is overdue", ReviewedAt: "2026-10-01", ReviewedBy: "security"},
+		},
+	}}}
+	findings := e.Evaluate([]Target{target}, cfg, "")
+	f, ok := findingByID(findings, "ORG-11")
+	if !ok || f.Status != StatusFail || f.Notes == "" {
+		t.Fatalf("partial assessment should fail with evidence, got %+v", findings)
+	}
+	if !strings.Contains(f.Notes, "Restore test is overdue") {
+		t.Errorf("finding notes omit assessment evidence: %q", f.Notes)
+	}
+
+	missing := e.Evaluate([]Target{target}, &rules.Config{}, "")
+	if f, ok := findingByID(missing, "ORG-11"); !ok || f.Status != StatusUnknown {
+		t.Fatalf("missing assessment should be unknown, got %+v", missing)
+	}
+
+	notApplicable := &rules.Config{Assessments: rules.AssessmentConfig{Orgs: map[string]map[string]rules.AssessmentInput{
+		"acme": {"ORG-11": {Status: "not_applicable", Evidence: "No production data", ReviewedAt: "2026-10-01", ReviewedBy: "security"}},
+	}}}
+	if got := e.Evaluate([]Target{target}, notApplicable, ""); len(got) != 0 {
+		t.Fatalf("not_applicable assessment should skip, got %+v", got)
+	}
+}
+
+func TestStaleHumanAssessmentIsUnknown(t *testing.T) {
+	rs := []rules.Rule{{
+		ID: "ORG-11", Scope: rules.ScopeOrg, Severity: "warn", Title: "Recovery plan",
+		Applies: `cfg.assessment.status != "not_applicable"`,
+		Pass:    `cfg.assessment.status == "compliant"`,
+	}}
+	e := mustEngine(t, rules.ScopeOrg, rs, nil)
+	cfg := &rules.Config{Assessments: rules.AssessmentConfig{
+		AsOf: "2026-10-13", MaxAgeDays: 30,
+		Orgs: map[string]map[string]rules.AssessmentInput{
+			"acme": {"ORG-11": {Status: "compliant", Evidence: "Old restore test", ReviewedAt: "2026-08-01", ReviewedBy: "security"}},
+		},
+	}}
+	findings := e.Evaluate([]Target{{Name: "acme", Facts: map[string]any{}}}, cfg, "")
+	f, ok := findingByID(findings, "ORG-11")
+	if !ok || f.Status != StatusUnknown || !strings.Contains(f.Notes, "stale") {
+		t.Fatalf("stale assessment should be unknown with a stale note, got %+v", findings)
 	}
 }

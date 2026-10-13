@@ -2,11 +2,13 @@ package collect
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/go-github/v84/github"
 )
@@ -112,6 +114,22 @@ func resolveRepos(ctx context.Context, c *github.Client, org string, names []str
 	return out, nil
 }
 
+// RepositoryNames returns all non-forked repository names in an organization.
+// It is intentionally metadata-only for commands that need target names but not
+// repository posture facts.
+func RepositoryNames(ctx context.Context, c *github.Client, org string) ([]string, error) {
+	repos, err := resolveRepos(ctx, c, org, nil)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(repos))
+	for _, repo := range repos {
+		names = append(names, repo.GetName())
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
 func repoFacts(ctx context.Context, c *github.Client, org string, r *github.Repository, shared orgWide) map[string]any {
 	name := r.GetName()
 	f := map[string]any{
@@ -119,6 +137,10 @@ func repoFacts(ctx context.Context, c *github.Client, org string, r *github.Repo
 		"owner":      org,
 		"archived":   r.GetArchived(),
 		"visibility": r.GetVisibility(),
+	}
+	setBool(f, "allow_forking", r.AllowForking)
+	if pushedAt := r.GetPushedAt().Time; !pushedAt.IsZero() {
+		f["last_pushed_days"] = ageDays(time.Now(), pushedAt)
 	}
 
 	// Code security & analysis: readable on public repos / with admin. When the
@@ -145,6 +167,19 @@ func repoFacts(ctx context.Context, c *github.Client, org string, r *github.Repo
 	if enabled, _, err := c.Repositories.GetVulnerabilityAlerts(ctx, org, name); err == nil {
 		f["vulnerability_alerts"] = enabled
 	}
+	if enabled, _, err := c.Repositories.IsPrivateReportingEnabled(ctx, org, name); err == nil {
+		f["private_vulnerability_reporting"] = enabled
+	}
+	if age, ok := oldestActionsSecretAge(ctx, c, "repos/"+org+"/"+name+"/actions/secrets"); ok {
+		f["oldest_actions_secret_age_days"] = age
+	}
+	if collaborators, admins, ok := repoCollaboratorAdminCounts(ctx, c, org, name); ok {
+		f["collaborator_count"] = collaborators
+		f["admin_collaborator_count"] = admins
+	}
+	if environments, ok := repoEnvironments(ctx, c, org, name); ok {
+		f["environments"] = environments
+	}
 
 	// CODEOWNERS plus automated dependency-update config (version updates), all
 	// resolved from one default-branch tree read. Each fact is omitted on
@@ -161,6 +196,23 @@ func repoFacts(ctx context.Context, c *github.Client, org string, r *github.Repo
 	}
 	if files.renovateKnown {
 		f["renovate_config"] = files.renovate
+	}
+	if files.repositoryFilesKnown {
+		f["repository_files"] = files.repositoryFiles
+	}
+	if counts, ok := workflowSecurityCountsForRepo(ctx, c, org, name, files); ok {
+		f["unpinned_action_ref_count"] = counts.unpinnedActionRefCount
+		f["workflow_permission_issue_count"] = counts.permissionIssueCount
+		f["workflow_pr_trigger_count"] = counts.pullRequestTriggerCount
+		f["codeql_action_count"] = counts.codeQLActionCount
+		f["dependency_review_action_count"] = counts.dependencyReviewCount
+		f["cache_action_count"] = counts.cacheActionCount
+		f["concurrency_workflow_count"] = counts.concurrencyWorkflowCount
+		f["matrix_job_count"] = counts.matrixJobCount
+		f["narrow_trigger_count"] = counts.narrowTriggerCount
+		f["reusable_workflow_count"] = counts.reusableWorkflowCount
+		f["release_automation_count"] = counts.releaseAutomationCount
+		f["stale_issue_automation_count"] = counts.staleIssueAutomationCount
 	}
 
 	// Teams holding a direct per-repo grant on this repo. A repo absent from the
@@ -200,6 +252,38 @@ func repoFacts(ctx context.Context, c *github.Client, org string, r *github.Repo
 	return f
 }
 
+func repoCollaboratorAdminCounts(ctx context.Context, c *github.Client, org, repo string) (int, int, bool) {
+	collaborators, admins := 0, 0
+	page := 1
+	for {
+		var body []struct {
+			Permissions struct {
+				Admin *bool `json:"admin"`
+			} `json:"permissions"`
+		}
+		resp, err := getJSON(ctx, c, "repos/"+org+"/"+repo+"/collaborators?affiliation=all&per_page=100&page="+itoa(int64(page)), &body)
+		if err != nil {
+			return 0, 0, false
+		}
+		for _, collaborator := range body {
+			if collaborator.Permissions.Admin == nil {
+				return 0, 0, false
+			}
+			collaborators++
+			if *collaborator.Permissions.Admin {
+				admins++
+			}
+		}
+		if resp == nil || resp.NextPage == 0 {
+			return collaborators, admins, true
+		}
+		if resp.NextPage == page {
+			return 0, 0, false
+		}
+		page = resp.NextPage
+	}
+}
+
 // fileFacts holds the presence of committed config files, each paired with a
 // Known flag that is false when absence could not be proven (the caller then
 // omits the fact so the rule reports unknown, never a false "absent").
@@ -207,6 +291,10 @@ type fileFacts struct {
 	codeowners, codeownersKnown bool
 	dependabot, dependabotKnown bool
 	renovate, renovateKnown     bool
+	workflowFiles               map[string]string
+	workflowFilesKnown          bool
+	repositoryFiles             map[string]bool
+	repositoryFilesKnown        bool
 }
 
 // repoFiles resolves every committed-file fact from a single recursive tree of
@@ -237,9 +325,13 @@ func repoFiles(ctx context.Context, c *github.Client, org, repo, branch string) 
 	}
 
 	present := make(map[string]bool, len(tree.Entries))
+	workflowFiles := map[string]string{}
 	for _, e := range tree.Entries {
 		if e.GetType() == "blob" {
 			present[e.GetPath()] = true
+			if isWorkflowPath(e.GetPath()) {
+				workflowFiles[e.GetPath()] = e.GetSHA()
+			}
 		}
 	}
 
@@ -259,12 +351,151 @@ func repoFiles(ctx context.Context, c *github.Client, org, repo, branch string) 
 	f.codeowners, f.codeownersKnown = fact(codeownersFilePaths)
 	f.dependabot, f.dependabotKnown = fact(dependabotFilePaths)
 	f.renovate, f.renovateKnown = fact(renovateFilePaths)
+	if !truncated {
+		f.workflowFilesKnown = true
+		f.workflowFiles = workflowFiles
+		for _, sha := range workflowFiles {
+			if sha == "" {
+				f.workflowFilesKnown = false
+				break
+			}
+		}
+		f.repositoryFilesKnown = true
+		f.repositoryFiles = repositoryFileFacts(present)
+	}
 	return f
 }
 
 // allAbsent is the definitive "no files present" result (every fact known-false).
 func allAbsent() fileFacts {
-	return fileFacts{codeownersKnown: true, dependabotKnown: true, renovateKnown: true}
+	return fileFacts{
+		codeownersKnown: true, dependabotKnown: true, renovateKnown: true,
+		workflowFiles: map[string]string{}, workflowFilesKnown: true,
+		repositoryFiles: repositoryFileFacts(map[string]bool{}), repositoryFilesKnown: true,
+	}
+}
+
+func repositoryFileFacts(present map[string]bool) map[string]bool {
+	has := func(paths ...string) bool {
+		for _, path := range paths {
+			if present[path] {
+				return true
+			}
+		}
+		return false
+	}
+	copilotInstructions := has(".github/copilot-instructions.md")
+	for path := range present {
+		lower := strings.ToLower(path)
+		if strings.HasPrefix(lower, ".github/instructions/") && strings.HasSuffix(lower, ".instructions.md") {
+			copilotInstructions = true
+			break
+		}
+	}
+	hasTemplate := func(prefix string, extensions ...string) bool {
+		for path := range present {
+			if !strings.HasPrefix(path, prefix) {
+				continue
+			}
+			lower := strings.ToLower(path)
+			for _, extension := range extensions {
+				if strings.HasSuffix(lower, extension) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return map[string]bool{
+		"readme":                has("README.md", "README", "readme.md"),
+		"security_policy":       has("SECURITY.md", ".github/SECURITY.md", "docs/SECURITY.md"),
+		"contributing_guide":    has("CONTRIBUTING.md", ".github/CONTRIBUTING.md", "docs/CONTRIBUTING.md"),
+		"pull_request_template": has("PULL_REQUEST_TEMPLATE.md", ".github/PULL_REQUEST_TEMPLATE.md") || hasTemplate(".github/PULL_REQUEST_TEMPLATE/", ".md"),
+		"issue_templates":       has(".github/ISSUE_TEMPLATE.yml", ".github/ISSUE_TEMPLATE.yaml") || hasTemplate(".github/ISSUE_TEMPLATE/", ".md", ".yml", ".yaml"),
+		"copilot_instructions":  copilotInstructions,
+		"sast_configuration":    has(".semgrep.yml", ".semgrep.yaml", "semgrep.yml", "semgrep.yaml", "sonar-project.properties", "codeql-config.yml", ".github/codeql/codeql-config.yml"),
+	}
+}
+
+func isWorkflowPath(path string) bool {
+	if !strings.HasPrefix(path, ".github/workflows/") || strings.Count(path, "/") != 2 {
+		return false
+	}
+	ext := strings.ToLower(path[strings.LastIndexByte(path, '.')+1:])
+	return ext == "yml" || ext == "yaml"
+}
+
+type workflowSecurityCounts struct {
+	unpinnedActionRefCount    int
+	permissionIssueCount      int
+	pullRequestTriggerCount   int
+	codeQLActionCount         int
+	dependencyReviewCount     int
+	cacheActionCount          int
+	concurrencyWorkflowCount  int
+	matrixJobCount            int
+	narrowTriggerCount        int
+	reusableWorkflowCount     int
+	releaseAutomationCount    int
+	staleIssueAutomationCount int
+}
+
+func workflowSecurityCountsForRepo(ctx context.Context, c *github.Client, org, repo string, files fileFacts) (workflowSecurityCounts, bool) {
+	if !files.workflowFilesKnown {
+		return workflowSecurityCounts{}, false
+	}
+	paths := make([]string, 0, len(files.workflowFiles))
+	for path := range files.workflowFiles {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	counts := workflowSecurityCounts{}
+	for _, path := range paths {
+		sha := files.workflowFiles[path]
+		var blob struct {
+			Content  string `json:"content"`
+			Encoding string `json:"encoding"`
+		}
+		if _, err := getJSON(ctx, c, "repos/"+org+"/"+repo+"/git/blobs/"+sha, &blob); err != nil || blob.Encoding != "base64" {
+			return workflowSecurityCounts{}, false
+		}
+		data, err := base64.StdEncoding.DecodeString(blob.Content)
+		if err != nil {
+			return workflowSecurityCounts{}, false
+		}
+		refs, err := unpinnedActionRefs(data)
+		if err != nil {
+			return workflowSecurityCounts{}, false
+		}
+		issues, err := workflowPermissionIssues(data)
+		if err != nil {
+			return workflowSecurityCounts{}, false
+		}
+		static, err := inspectWorkflow(data)
+		if err != nil {
+			return workflowSecurityCounts{}, false
+		}
+		counts.unpinnedActionRefCount += refs
+		counts.permissionIssueCount += issues
+		if static.pullRequestTrigger {
+			counts.pullRequestTriggerCount++
+		}
+		counts.codeQLActionCount += static.codeQLActionCount
+		counts.dependencyReviewCount += static.dependencyReviewCount
+		counts.cacheActionCount += static.cacheActionCount
+		if static.concurrency {
+			counts.concurrencyWorkflowCount++
+		}
+		counts.matrixJobCount += static.matrixJobs
+		if static.narrowTrigger {
+			counts.narrowTriggerCount++
+		}
+		counts.reusableWorkflowCount += static.reusableWorkflowCount
+		counts.releaseAutomationCount += static.releaseAutomationCount
+		counts.staleIssueAutomationCount += static.staleIssueAutomationCount
+	}
+	return counts, true
 }
 
 // codeownersErrorCount asks GitHub's own CODEOWNERS linter how many syntax and
@@ -385,7 +616,18 @@ func protection(ctx context.Context, c *github.Client, org, repo, branch string)
 		"required_pull_request_reviews":   false,
 		"required_approving_review_count": 0,
 		"require_code_owner_reviews":      false,
+		"required_status_checks":          false,
+		"branches_up_to_date":             false,
+		"dismiss_stale_reviews":           false,
+		"require_conversation_resolution": false,
+		"require_signed_commits":          false,
+		"require_linear_history":          false,
+		"allow_force_pushes":              true,
+		"allow_deletions":                 true,
+		"restrict_pushes":                 false,
+		"restrict_dismissals":             false,
 		"pr_bypass_actor_types":           []any{},
+		"ruleset_bypass_actor_types":      []any{},
 	}
 	// An empty repository has no default branch, so there is nothing to protect.
 	if branch == "" {
@@ -399,10 +641,50 @@ func protection(ctx context.Context, c *github.Client, org, repo, branch string)
 	bp, _, err := c.Repositories.GetBranchProtection(ctx, org, repo, branch)
 	switch {
 	case err == nil:
+		p["allow_force_pushes"] = false
+		p["allow_deletions"] = false
 		if rev := bp.GetRequiredPullRequestReviews(); rev != nil {
 			p["required_pull_request_reviews"] = true
+			p["restrict_pushes"] = true
 			p["required_approving_review_count"] = rev.RequiredApprovingReviewCount
 			p["require_code_owner_reviews"] = rev.RequireCodeOwnerReviews
+			p["dismiss_stale_reviews"] = rev.DismissStaleReviews
+			p["restrict_dismissals"] = rev.DismissalRestrictions != nil
+			if allowances := rev.BypassPullRequestAllowances; allowances != nil {
+				actors := map[string]bool{}
+				if len(allowances.Users) > 0 {
+					actors["User"] = true
+				}
+				if len(allowances.Teams) > 0 {
+					actors["Team"] = true
+				}
+				if len(allowances.Apps) > 0 {
+					actors["Integration"] = true
+				}
+				p["pr_bypass_actor_types"] = sortedAnyKeys(actors)
+			}
+		}
+		if checks := bp.RequiredStatusChecks; checks != nil {
+			p["required_status_checks"] = (checks.Contexts != nil && len(*checks.Contexts) > 0) || (checks.Checks != nil && len(*checks.Checks) > 0)
+			p["branches_up_to_date"] = checks.Strict
+		}
+		if setting := bp.RequiredConversationResolution; setting != nil {
+			p["require_conversation_resolution"] = setting.Enabled
+		}
+		if setting := bp.RequiredSignatures; setting != nil {
+			p["require_signed_commits"] = setting.Enabled
+		}
+		if setting := bp.RequireLinearHistory; setting != nil {
+			p["require_linear_history"] = setting.Enabled
+		}
+		if setting := bp.AllowForcePushes; setting != nil {
+			p["allow_force_pushes"] = setting.Enabled
+		}
+		if setting := bp.AllowDeletions; setting != nil {
+			p["allow_deletions"] = setting.Enabled
+		}
+		if bp.Restrictions != nil {
+			p["restrict_pushes"] = true
 		}
 	case errors.Is(err, github.ErrBranchNotProtected):
 	default:
@@ -431,8 +713,14 @@ type rulesetDetail struct {
 	Rules []struct {
 		Type       string `json:"type"`
 		Parameters struct {
-			RequiredApprovingReviewCount int  `json:"required_approving_review_count"`
-			RequireCodeOwnerReview       bool `json:"require_code_owner_review"`
+			RequiredApprovingReviewCount   int  `json:"required_approving_review_count"`
+			RequireCodeOwnerReview         bool `json:"require_code_owner_review"`
+			DismissStaleReviewsOnPush      bool `json:"dismiss_stale_reviews_on_push"`
+			RequiredReviewThreadResolution bool `json:"required_review_thread_resolution"`
+			StrictRequiredStatusChecks     bool `json:"strict_required_status_checks_policy"`
+			RequiredStatusChecks           []struct {
+				Context string `json:"context"`
+			} `json:"required_status_checks"`
 		} `json:"parameters"`
 	} `json:"rules"`
 	BypassActors []struct {
@@ -449,10 +737,18 @@ type rulesetDetail struct {
 // is a read failure, and skipping one could miss the rule that protects the branch.
 func foldRulesets(ctx context.Context, c *github.Client, org, repo, branch string, p map[string]any) (int, bool) {
 	var summaries []rulesetSummary
-	if _, err := getJSON(ctx, c, "repos/"+org+"/"+repo+"/rulesets?includes_parents=false", &summaries); err != nil {
+	if _, err := getJSON(ctx, c, "repos/"+org+"/"+repo+"/rulesets?includes_parents=true", &summaries); err != nil {
 		return 0, false
 	}
 	bypass := map[string]bool{}
+	prBypass := map[string]bool{}
+	if actors, ok := p["pr_bypass_actor_types"].([]any); ok {
+		for _, actor := range actors {
+			if actorType, ok := actor.(string); ok {
+				prBypass[actorType] = true
+			}
+		}
+	}
 	count := 0
 	for _, s := range summaries {
 		if s.Enforcement != "active" || s.Target != "branch" {
@@ -466,35 +762,63 @@ func foldRulesets(ctx context.Context, c *github.Client, org, repo, branch strin
 			continue
 		}
 		count++
+		for _, a := range d.BypassActors {
+			bypass[a.ActorType] = true
+		}
 		for _, r := range d.Rules {
-			if r.Type != "pull_request" {
-				continue
-			}
-			p["required_pull_request_reviews"] = true
-			if r.Parameters.RequiredApprovingReviewCount > toInt(p["required_approving_review_count"]) {
-				p["required_approving_review_count"] = r.Parameters.RequiredApprovingReviewCount
-			}
-			if r.Parameters.RequireCodeOwnerReview {
-				p["require_code_owner_reviews"] = true
-			}
-			for _, a := range d.BypassActors {
-				bypass[a.ActorType] = true
+			switch r.Type {
+			case "pull_request":
+				p["required_pull_request_reviews"] = true
+				p["restrict_pushes"] = true
+				if r.Parameters.RequiredApprovingReviewCount > toInt(p["required_approving_review_count"]) {
+					p["required_approving_review_count"] = r.Parameters.RequiredApprovingReviewCount
+				}
+				if r.Parameters.RequireCodeOwnerReview {
+					p["require_code_owner_reviews"] = true
+				}
+				if r.Parameters.DismissStaleReviewsOnPush {
+					p["dismiss_stale_reviews"] = true
+				}
+				if r.Parameters.RequiredReviewThreadResolution {
+					p["require_conversation_resolution"] = true
+				}
+				for _, a := range d.BypassActors {
+					prBypass[a.ActorType] = true
+				}
+			case "required_status_checks":
+				if len(r.Parameters.RequiredStatusChecks) > 0 {
+					p["required_status_checks"] = true
+				}
+				if r.Parameters.StrictRequiredStatusChecks {
+					p["branches_up_to_date"] = true
+				}
+			case "required_signatures":
+				p["require_signed_commits"] = true
+			case "required_linear_history":
+				p["require_linear_history"] = true
+			case "non_fast_forward":
+				p["allow_force_pushes"] = false
+			case "deletion":
+				p["allow_deletions"] = false
 			}
 		}
 	}
-	if len(bypass) > 0 {
-		keys := make([]string, 0, len(bypass))
-		for t := range bypass {
-			keys = append(keys, t)
-		}
-		sort.Strings(keys) // deterministic order: facts are an artifact (cache/diff)
-		types := make([]any, len(keys))
-		for i, k := range keys {
-			types[i] = k
-		}
-		p["pr_bypass_actor_types"] = types
-	}
+	p["ruleset_bypass_actor_types"] = sortedAnyKeys(bypass)
+	p["pr_bypass_actor_types"] = sortedAnyKeys(prBypass)
 	return count, true
+}
+
+func sortedAnyKeys(values map[string]bool) []any {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]any, len(keys))
+	for i, key := range keys {
+		out[i] = key
+	}
+	return out
 }
 
 // targetsBranch reports whether a ruleset's ref_name include list applies to the

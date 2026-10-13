@@ -58,3 +58,39 @@ func TestMarkdownDropsPassAndOrders(t *testing.T) {
 		t.Error("pass rows must be dropped from tables")
 	}
 }
+
+func TestMarkdownIncludesPassingAssessmentEvidence(t *testing.T) {
+	fs := []engine.Finding{{
+		ID: "ORG-11", Severity: "warn", Title: "Recovery plan", Target: "acme",
+		Status: engine.StatusPass, Notes: "Assessment: compliant; Evidence: restore test passed",
+	}}
+	md := Markdown(fs, "org")
+	if !strings.Contains(md, "| acme | ✅ pass | Assessment: compliant; Evidence: restore test passed |") {
+		t.Fatalf("passing assessment evidence missing from Markdown:\n%s", md)
+	}
+}
+
+func TestMarkdownEscapesAssessmentEvidence(t *testing.T) {
+	fs := []engine.Finding{{
+		ID: "ORG-11", Severity: "warn", Title: "Recovery plan", Target: "acme",
+		Status: engine.StatusPass, Notes: "Evidence: rollback | restore\nverified",
+	}}
+	md := Markdown(fs, "org")
+	if !strings.Contains(md, `rollback \| restore verified`) {
+		t.Fatalf("assessment evidence breaks Markdown table formatting:\n%s", md)
+	}
+}
+
+func TestSARIFIncludesPassingAssessmentEvidence(t *testing.T) {
+	fs := []engine.Finding{{
+		ID: "ORG-11", Scope: "org", Severity: "warn", Title: "Recovery plan", Target: "acme",
+		Status: engine.StatusPass, Notes: "Assessment: compliant; Evidence: restore test passed",
+	}}
+	data, err := SARIF(fs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "restore test passed") {
+		t.Fatalf("passing assessment evidence missing from SARIF: %s", data)
+	}
+}

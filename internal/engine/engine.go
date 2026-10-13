@@ -106,6 +106,14 @@ func (e *Engine) Evaluate(targets []Target, cfg *rules.Config, enterprise string
 			f := Finding{
 				ID: c.rule.ID, Scope: string(e.scope), Severity: res.Severity,
 				Title: c.rule.Title, Target: t.Name, FixHint: c.rule.FixHint,
+				Notes: assessmentNotes(res.Cfg),
+			}
+			if assessment, ok := res.Cfg["assessment"].(map[string]any); ok &&
+				assessment["status"] != "not_applicable" && assessment["stale"] == true {
+				f.Status = StatusUnknown
+				f.Notes = assessmentNotes(res.Cfg)
+				out = append(out, f)
+				continue
 			}
 
 			// applies_when: a false result skips the target silently (no row). An
@@ -141,6 +149,19 @@ func (e *Engine) Evaluate(targets []Target, cfg *rules.Config, enterprise string
 		}
 	}
 	return out
+}
+
+func assessmentNotes(cfg map[string]any) string {
+	assessment, ok := cfg["assessment"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	prefix := "Assessment"
+	if assessment["stale"] == true {
+		prefix = "Assessment is stale"
+	}
+	return fmt.Sprintf("%s: %s; reviewed %s by %s. Evidence: %s",
+		prefix, assessment["status"], assessment["reviewed_at"], assessment["reviewed_by"], assessment["evidence"])
 }
 
 func newEnv(varNames []string) (*cel.Env, error) {

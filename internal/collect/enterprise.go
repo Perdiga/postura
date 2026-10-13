@@ -18,6 +18,12 @@ query($slug: String!, $after: String) {
       defaultRepositoryPermissionSetting
       ipAllowListEnabledSetting
       allowPrivateRepositoryForkingSetting
+			membersCanChangeRepositoryVisibilitySetting
+			membersCanInviteCollaboratorsSetting
+			twoFactorRequiredSetting
+			membersCanCreatePublicRepositoriesSetting
+			membersCanDeleteRepositoriesSetting
+			notificationDeliveryRestrictionEnabledSetting
       samlIdentityProvider { ssoUrl }
       outsideCollaborators(first: 100, after: $after) {
         nodes { login }
@@ -28,10 +34,16 @@ query($slug: String!, $after: String) {
 }`
 
 type entOwnerInfo struct {
-	DefaultRepositoryPermissionSetting   *string `json:"defaultRepositoryPermissionSetting"`
-	IPAllowListEnabledSetting            *string `json:"ipAllowListEnabledSetting"`
-	AllowPrivateRepositoryForkingSetting *string `json:"allowPrivateRepositoryForkingSetting"`
-	SamlIdentityProvider                 *struct {
+	DefaultRepositoryPermissionSetting            *string `json:"defaultRepositoryPermissionSetting"`
+	IPAllowListEnabledSetting                     *string `json:"ipAllowListEnabledSetting"`
+	AllowPrivateRepositoryForkingSetting          *string `json:"allowPrivateRepositoryForkingSetting"`
+	MembersCanChangeRepositoryVisibilitySetting   *string `json:"membersCanChangeRepositoryVisibilitySetting"`
+	MembersCanInviteCollaboratorsSetting          *string `json:"membersCanInviteCollaboratorsSetting"`
+	TwoFactorRequiredSetting                      *string `json:"twoFactorRequiredSetting"`
+	MembersCanCreatePublicRepositoriesSetting     *bool   `json:"membersCanCreatePublicRepositoriesSetting"`
+	MembersCanDeleteRepositoriesSetting           *string `json:"membersCanDeleteRepositoriesSetting"`
+	NotificationDeliveryRestrictionEnabledSetting *string `json:"notificationDeliveryRestrictionEnabledSetting"`
+	SamlIdentityProvider                          *struct {
 		SSOURL string `json:"ssoUrl"`
 	} `json:"samlIdentityProvider"`
 	OutsideCollaborators struct {
@@ -85,6 +97,22 @@ func Enterprise(ctx context.Context, c *github.Client, slug string) (map[string]
 			if oi.AllowPrivateRepositoryForkingSetting != nil {
 				f["allow_private_repository_forking"] = *oi.AllowPrivateRepositoryForkingSetting
 			}
+			if oi.MembersCanChangeRepositoryVisibilitySetting != nil {
+				f["members_can_change_repository_visibility"] = *oi.MembersCanChangeRepositoryVisibilitySetting
+			}
+			if oi.MembersCanInviteCollaboratorsSetting != nil {
+				f["members_can_invite_collaborators"] = *oi.MembersCanInviteCollaboratorsSetting
+			}
+			if oi.TwoFactorRequiredSetting != nil {
+				f["two_factor_required_setting"] = *oi.TwoFactorRequiredSetting
+			}
+			setBool(f, "members_can_create_public_repositories", oi.MembersCanCreatePublicRepositoriesSetting)
+			if oi.MembersCanDeleteRepositoriesSetting != nil {
+				f["members_can_delete_repository"] = *oi.MembersCanDeleteRepositoriesSetting
+			}
+			if oi.NotificationDeliveryRestrictionEnabledSetting != nil {
+				f["notification_delivery_restriction_enabled"] = *oi.NotificationDeliveryRestrictionEnabledSetting
+			}
 			f["saml_sso_url"] = nil
 			if oi.SamlIdentityProvider != nil {
 				f["saml_sso_url"] = strOrNull(oi.SamlIdentityProvider.SSOURL)
@@ -103,7 +131,22 @@ func Enterprise(ctx context.Context, c *github.Client, slug string) (map[string]
 
 	f["outside_collaborators"] = emptyIfNil(collaborators)
 	f["outside_collaborator_count"] = len(collaborators)
+	for key, value := range enterpriseSecurityFacts(ctx, c, slug) {
+		f[key] = value
+	}
 	return f, nil
+}
+
+func enterpriseSecurityFacts(ctx context.Context, c *github.Client, slug string) map[string]any {
+	settings, _, err := c.Enterprise.GetCodeSecurityAndAnalysis(ctx, slug)
+	if err != nil {
+		return nil
+	}
+	facts := map[string]any{}
+	setBool(facts, "advanced_security_enabled_for_new_repositories", settings.AdvancedSecurityEnabledForNewRepositories)
+	setBool(facts, "secret_scanning_enabled_for_new_repositories", settings.SecretScanningEnabledForNewRepositories)
+	setBool(facts, "secret_scanning_push_protection_enabled_for_new_repositories", settings.SecretScanningPushProtectionEnabledForNewRepositories)
+	return facts
 }
 
 // graphQL issues a POST against the GraphQL endpoint and decodes data/errors into

@@ -3,13 +3,16 @@ package collect
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
 
-type treeEnt struct{ path, typ string }
+type treeEnt struct{ path, typ, sha string }
 
 // treeBody marshals a Git Trees API response body from entries + truncated flag.
 func treeBody(t *testing.T, ents []treeEnt, truncated bool) string {
@@ -17,13 +20,14 @@ func treeBody(t *testing.T, ents []treeEnt, truncated bool) string {
 	type e struct {
 		Path string `json:"path"`
 		Type string `json:"type"`
+		SHA  string `json:"sha,omitempty"`
 	}
 	payload := struct {
 		Tree      []e  `json:"tree"`
 		Truncated bool `json:"truncated"`
 	}{Truncated: truncated}
 	for _, x := range ents {
-		payload.Tree = append(payload.Tree, e{Path: x.path, Type: x.typ})
+		payload.Tree = append(payload.Tree, e{Path: x.path, Type: x.typ, SHA: x.sha})
 	}
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -59,11 +63,17 @@ func blobs(paths ...string) []treeEnt {
 	return out
 }
 
+func workflowBlob(path, sha string) treeEnt {
+	return treeEnt{path: path, typ: "blob", sha: sha}
+}
+
 func TestRepoFiles(t *testing.T) {
 	all := fileFacts{
 		codeowners: true, codeownersKnown: true,
 		dependabot: true, dependabotKnown: true,
 		renovate: true, renovateKnown: true,
+		workflowFiles: map[string]string{}, workflowFilesKnown: true,
+		repositoryFiles: repositoryFileFacts(map[string]bool{}), repositoryFilesKnown: true,
 	}
 	cases := []struct {
 		name string
@@ -83,12 +93,21 @@ func TestRepoFiles(t *testing.T) {
 		{
 			name: "renovate under .github only",
 			ents: blobs(".github/renovate.json5"),
-			want: fileFacts{codeownersKnown: true, dependabotKnown: true, renovate: true, renovateKnown: true},
+			want: fileFacts{
+				codeownersKnown: true, dependabotKnown: true,
+				renovate: true, renovateKnown: true,
+				workflowFiles: map[string]string{}, workflowFilesKnown: true,
+				repositoryFiles: repositoryFileFacts(map[string]bool{}), repositoryFilesKnown: true,
+			},
 		},
 		{
-			name: "none present, complete tree is a definitive absence",
-			ents: blobs("README.md", "main.go", ".github/workflows/ci.yml"),
-			want: allAbsent(),
+			name: "no optional files, complete tree proves their absence",
+			ents: blobs("README.md", "main.go"),
+			want: fileFacts{
+				codeownersKnown: true, dependabotKnown: true, renovateKnown: true,
+				workflowFiles: map[string]string{}, workflowFilesKnown: true,
+				repositoryFiles: repositoryFileFacts(map[string]bool{"README.md": true}), repositoryFilesKnown: true,
+			},
 		},
 		{
 			name: "a tree entry (directory) at a config path does not count as the file",
@@ -101,7 +120,7 @@ func TestRepoFiles(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := testClient(t, serveTree(t, treeBody(t, tc.ents, false), http.StatusOK))
 			got := repoFiles(context.Background(), c, "acme", "web", "main")
-			if got != tc.want {
+			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("repoFiles = %+v, want %+v", got, tc.want)
 			}
 		})
@@ -119,7 +138,7 @@ func TestRepoFilesTruncated(t *testing.T) {
 		dependabot: true, dependabotKnown: true,
 		renovate: false, renovateKnown: false,
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("repoFiles = %+v, want %+v", got, want)
 	}
 }
@@ -140,7 +159,7 @@ func TestRepoFilesEmptyRepo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := testClient(t, serveTree(t, "", tc.status))
 			got := repoFiles(context.Background(), c, "acme", "web", tc.branch)
-			if got != allAbsent() {
+			if !reflect.DeepEqual(got, allAbsent()) {
 				t.Errorf("repoFiles = %+v, want %+v", got, allAbsent())
 			}
 		})
@@ -285,6 +304,9 @@ func serveProtection(t *testing.T, r protectionRoutes) http.HandlerFunc {
 		case p == "/repos/acme/web/branches/main/protection":
 			write(w, r.protStatus, r.protBody)
 		case p == "/repos/acme/web/rulesets":
+			if req.URL.Query().Get("includes_parents") != "true" {
+				t.Errorf("includes_parents = %q, want true", req.URL.Query().Get("includes_parents"))
+			}
 			write(w, r.listStatus, r.listBody)
 		case strings.HasPrefix(p, "/repos/acme/web/rulesets/"):
 			write(w, r.detailStatus, r.detailBody)
@@ -349,6 +371,78 @@ func TestProtectionUnreadable(t *testing.T) {
 	}
 }
 
+func TestRepoCollaboratorAdminCounts(t *testing.T) {
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/acme/web/collaborators" || r.URL.Query().Get("affiliation") != "all" {
+			t.Errorf("unexpected collaborator request %q", r.URL.String())
+		}
+		_, _ = io.WriteString(w, `[
+			{"permissions":{"admin":true}},
+			{"permissions":{"admin":false}}
+		]`)
+	})
+	collaborators, admins, ok := repoCollaboratorAdminCounts(context.Background(), c, "acme", "web")
+	if !ok || collaborators != 2 || admins != 1 {
+		t.Fatalf("collaborator counts = (%d, %d, %v), want (2, 1, true)", collaborators, admins, ok)
+	}
+}
+
+func TestRepositoryNames(t *testing.T) {
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/orgs/acme/repos" {
+			t.Errorf("request path = %q, want organization repository listing", r.URL.Path)
+		}
+		_, _ = io.WriteString(w, `[
+			{"name":"zeta","fork":false},
+			{"name":"upstream","fork":true},
+			{"name":"alpha","fork":false}
+		]`)
+	})
+	names, err := RepositoryNames(context.Background(), c, "acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(names, []string{"alpha", "zeta"}) {
+		t.Fatalf("repository names = %v, want sorted non-fork names", names)
+	}
+}
+
+func TestRepoCollaboratorAdminCountsUnknown(t *testing.T) {
+	cases := map[string]http.HandlerFunc{
+		"missing permission": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, `[{"permissions":{}}]`)
+		},
+		"forbidden": func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+		},
+	}
+	for name, handler := range cases {
+		t.Run(name, func(t *testing.T) {
+			c := testClient(t, handler)
+			if _, _, ok := repoCollaboratorAdminCounts(context.Background(), c, "acme", "web"); ok {
+				t.Fatal("incomplete collaborator permissions must be unknown")
+			}
+		})
+	}
+}
+
+func TestPrivateVulnerabilityReporting(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		t.Run(strconv.FormatBool(enabled), func(t *testing.T) {
+			c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/repos/acme/web/private-vulnerability-reporting" {
+					t.Errorf("request path = %q, want private vulnerability reporting", r.URL.Path)
+				}
+				_, _ = fmt.Fprintf(w, `{"enabled":%t}`, enabled)
+			})
+			got, _, err := c.Repositories.IsPrivateReportingEnabled(context.Background(), "acme", "web")
+			if err != nil || got != enabled {
+				t.Fatalf("private reporting = (%v, %v), want (%v, nil)", got, err, enabled)
+			}
+		})
+	}
+}
+
 // The one error that is an answer: GitHub returns 404 for a branch that simply
 // has no classic protection. Paired with an empty ruleset list that proves the
 // branch is unprotected, which must stay a scorable fail rather than unknown.
@@ -368,6 +462,9 @@ func TestProtectionUnprotectedIsKnown(t *testing.T) {
 	if p["required_pull_request_reviews"] != false || p["require_code_owner_reviews"] != false {
 		t.Errorf("unprotected branch should score all-false, got %+v", p)
 	}
+	if p["allow_force_pushes"] != true || p["allow_deletions"] != true {
+		t.Errorf("unprotected branch should allow force pushes/deletion, got %+v", p)
+	}
 }
 
 // An empty repository has no default branch, so there is nothing to protect —
@@ -383,13 +480,26 @@ func TestProtectionEmptyRepoIsKnown(t *testing.T) {
 // the stricter value winning per field.
 func TestProtectionFoldsStricter(t *testing.T) {
 	c := testClient(t, serveProtection(t, protectionRoutes{
-		protBody: `{"required_pull_request_reviews":
-			{"required_approving_review_count":1,"require_code_owner_reviews":false}}`,
+		protBody: `{"required_status_checks":{"strict":true,"contexts":["test"]},
+			"required_pull_request_reviews":{"required_approving_review_count":1,
+			"require_code_owner_reviews":false,"dismiss_stale_reviews":true,
+			"dismissal_restrictions":{"users":[{"login":"reviewer"}]},
+			"bypass_pull_request_allowances":{"users":[{"login":"alice"}],"teams":[],"apps":[]}},
+			"required_conversation_resolution":{"enabled":true},
+			"required_signatures":{"enabled":true},
+			"required_linear_history":{"enabled":true},
+			"allow_force_pushes":{"enabled":true},"allow_deletions":{"enabled":true},
+			"restrictions":{"users":[],"teams":[],"apps":[]}}`,
 		listBody: `[{"id":1,"target":"branch","enforcement":"active"}]`,
 		detailBody: `{"conditions":{"ref_name":{"include":["~DEFAULT_BRANCH"]}},
-			"rules":[{"type":"pull_request","parameters":
-				{"required_approving_review_count":2,"require_code_owner_review":true}}],
-			"bypass_actors":[{"actor_type":"Integration"}]}`,
+			"rules":[
+				{"type":"pull_request","parameters":{"required_approving_review_count":2,
+				"require_code_owner_review":true,"dismiss_stale_reviews_on_push":true,
+				"required_review_thread_resolution":true}},
+				{"type":"required_status_checks","parameters":{"required_status_checks":[{"context":"test"}],"strict_required_status_checks_policy":true}},
+				{"type":"required_signatures"},{"type":"required_linear_history"},
+				{"type":"non_fast_forward"},{"type":"deletion"}],
+			"bypass_actors":[{"actor_type":"Integration"},{"actor_type":"Team"}]}`,
 	}))
 	p, count, ok := protection(context.Background(), c, "acme", "web", "main")
 	if !ok {
@@ -403,5 +513,26 @@ func TestProtectionFoldsStricter(t *testing.T) {
 	}
 	if p["require_code_owner_reviews"] != true {
 		t.Errorf("require_code_owner_reviews = %v, want true", p["require_code_owner_reviews"])
+	}
+	for _, key := range []string{
+		"required_status_checks", "branches_up_to_date", "dismiss_stale_reviews",
+		"require_conversation_resolution", "require_signed_commits", "require_linear_history",
+		"restrict_pushes", "restrict_dismissals",
+	} {
+		if p[key] != true {
+			t.Errorf("%s = %v, want true", key, p[key])
+		}
+	}
+	if p["allow_force_pushes"] != false || p["allow_deletions"] != false {
+		t.Errorf("ruleset did not block force pushes/deletion: %+v", p)
+	}
+	if p["restrict_pushes"] != true {
+		t.Errorf("pull request requirement should restrict direct pushes: %+v", p)
+	}
+	if got := p["pr_bypass_actor_types"].([]any); len(got) != 3 || got[0] != "Integration" || got[1] != "Team" || got[2] != "User" {
+		t.Errorf("pr_bypass_actor_types = %v, want sorted Integration, Team, User", got)
+	}
+	if got := p["ruleset_bypass_actor_types"].([]any); len(got) != 2 || got[0] != "Integration" || got[1] != "Team" {
+		t.Errorf("ruleset_bypass_actor_types = %v, want sorted Integration and Team", got)
 	}
 }

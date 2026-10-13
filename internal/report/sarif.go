@@ -14,7 +14,7 @@ func SARIF(fs []engine.Finding) ([]byte, error) {
 	seenRule := map[string]bool{}
 
 	for _, f := range fs {
-		if f.Status == engine.StatusPass {
+		if f.Status == engine.StatusPass && f.Notes == "" {
 			continue
 		}
 		if !seenRule[f.ID] {
@@ -28,7 +28,9 @@ func SARIF(fs []engine.Finding) ([]byte, error) {
 		}
 		lvl := level(f.Severity)
 		msg := f.Title
-		if f.Status == engine.StatusUnknown {
+		if f.Status == engine.StatusPass {
+			lvl = "note"
+		} else if f.Status == engine.StatusUnknown {
 			lvl = "note"
 			msg = "unknown: " + f.Title
 		}

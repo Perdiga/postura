@@ -51,6 +51,8 @@ func Org(ctx context.Context, c *github.Client, org string) (map[string]any, err
 	setBool(f, "two_factor_requirement_enabled", o.TwoFactorRequirementEnabled)
 	f["default_repository_permission"] = strOrNull(o.GetDefaultRepoPermission())
 	setBool(f, "members_can_create_repositories", o.MembersCanCreateRepos)
+	setBool(f, "members_can_create_public_repositories", o.MembersCanCreatePublicRepos)
+	setBool(f, "advanced_security_enabled_for_new_repositories", o.AdvancedSecurityEnabledForNewRepos)
 	setBool(f, "members_can_fork_private_repositories", o.MembersCanForkPrivateRepos)
 	setBool(f, "secret_scanning_enabled_for_new_repositories", o.SecretScanningEnabledForNewRepos)
 	setBool(f, "secret_scanning_push_protection_enabled_for_new_repositories", o.SecretScanningPushProtectionEnabledForNewRepos)
@@ -89,8 +91,78 @@ func Org(ctx context.Context, c *github.Client, org string) (map[string]any, err
 	if roles := organizationRoles(ctx, c, org); roles != nil {
 		f["organization_roles"] = roles
 	}
+	for key, value := range organizationActionsFacts(ctx, c, org) {
+		f[key] = value
+	}
+	if age, ok := oldestActionsSecretAge(ctx, c, "orgs/"+org+"/actions/secrets"); ok {
+		f["oldest_actions_secret_age_days"] = age
+	}
+	if groups, ok := organizationRunnerGroups(ctx, c, org); ok {
+		f["runner_groups"] = groups
+	}
 
 	return f, nil
+}
+
+func organizationActionsFacts(ctx context.Context, c *github.Client, org string) map[string]any {
+	facts := map[string]any{}
+	var repositoryPolicy struct {
+		EnabledRepositories string `json:"enabled_repositories"`
+		AllowedActions      string `json:"allowed_actions"`
+	}
+	if _, err := getJSON(ctx, c, "orgs/"+org+"/actions/permissions", &repositoryPolicy); err == nil {
+		if repositoryPolicy.EnabledRepositories != "" {
+			facts["actions_enabled_repositories"] = repositoryPolicy.EnabledRepositories
+		}
+		if repositoryPolicy.AllowedActions != "" {
+			facts["actions_allowed_actions"] = repositoryPolicy.AllowedActions
+		}
+	}
+	var workflowPolicy struct {
+		DefaultWorkflowPermissions   string `json:"default_workflow_permissions"`
+		CanApprovePullRequestReviews *bool  `json:"can_approve_pull_request_reviews"`
+	}
+	if _, err := getJSON(ctx, c, "orgs/"+org+"/actions/permissions/workflow", &workflowPolicy); err == nil {
+		if workflowPolicy.DefaultWorkflowPermissions != "" {
+			facts["actions_default_workflow_permissions"] = workflowPolicy.DefaultWorkflowPermissions
+		}
+		setBool(facts, "actions_can_approve_pull_request_reviews", workflowPolicy.CanApprovePullRequestReviews)
+	}
+	if len(facts) == 0 {
+		return nil
+	}
+	return facts
+}
+
+func organizationRunnerGroups(ctx context.Context, c *github.Client, org string) ([]any, bool) {
+	var out []any
+	page := 1
+	for {
+		var body struct {
+			RunnerGroups []struct {
+				ID                       int64  `json:"id"`
+				Name                     string `json:"name"`
+				Visibility               string `json:"visibility"`
+				AllowsPublicRepositories *bool  `json:"allows_public_repositories"`
+			} `json:"runner_groups"`
+		}
+		resp, err := getJSON(ctx, c, "orgs/"+org+"/actions/runner-groups?per_page=100&page="+itoa(int64(page)), &body)
+		if err != nil {
+			return nil, false
+		}
+		for _, group := range body.RunnerGroups {
+			row := map[string]any{"id": group.ID, "name": group.Name, "visibility": group.Visibility}
+			setBool(row, "allows_public_repositories", group.AllowsPublicRepositories)
+			out = append(out, row)
+		}
+		if resp == nil || resp.NextPage == 0 {
+			return emptyIfNil(out), true
+		}
+		if resp.NextPage == page {
+			return nil, false
+		}
+		page = resp.NextPage
+	}
 }
 
 func orgMemberLogins(ctx context.Context, c *github.Client, org, role string) ([]any, error) {

@@ -33,6 +33,12 @@ func TestEnterpriseMapsOwnerInfoAndPaginates(t *testing.T) {
 		"defaultRepositoryPermissionSetting":"READ",
 		"ipAllowListEnabledSetting":"ENABLED",
 		"allowPrivateRepositoryForkingSetting":"DISABLED",
+		"membersCanChangeRepositoryVisibilitySetting":"DISABLED",
+		"membersCanInviteCollaboratorsSetting":"DISABLED",
+		"twoFactorRequiredSetting":"ENABLED",
+		"membersCanCreatePublicRepositoriesSetting":false,
+		"membersCanDeleteRepositoriesSetting":"DISABLED",
+		"notificationDeliveryRestrictionEnabledSetting":"ENABLED",
 		"samlIdentityProvider":{"ssoUrl":"https://sso.example/saml"},
 		"outsideCollaborators":{"nodes":[{"login":"alice"}],
 			"pageInfo":{"hasNextPage":true,"endCursor":"C1"}}}}}}`
@@ -40,6 +46,12 @@ func TestEnterpriseMapsOwnerInfoAndPaginates(t *testing.T) {
 		"defaultRepositoryPermissionSetting":"READ",
 		"ipAllowListEnabledSetting":"ENABLED",
 		"allowPrivateRepositoryForkingSetting":"DISABLED",
+		"membersCanChangeRepositoryVisibilitySetting":"DISABLED",
+		"membersCanInviteCollaboratorsSetting":"DISABLED",
+		"twoFactorRequiredSetting":"ENABLED",
+		"membersCanCreatePublicRepositoriesSetting":false,
+		"membersCanDeleteRepositoriesSetting":"DISABLED",
+		"notificationDeliveryRestrictionEnabledSetting":"ENABLED",
 		"samlIdentityProvider":{"ssoUrl":"https://sso.example/saml"},
 		"outsideCollaborators":{"nodes":[{"login":"bob"}],
 			"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}}`
@@ -65,12 +77,18 @@ func TestEnterpriseMapsOwnerInfoAndPaginates(t *testing.T) {
 	}
 
 	want := map[string]any{
-		"enterprise":                       "acme",
-		"default_repository_permission":    "READ",
-		"ip_allow_list_enabled":            "ENABLED",
-		"allow_private_repository_forking": "DISABLED",
-		"saml_sso_url":                     "https://sso.example/saml",
-		"outside_collaborator_count":       2,
+		"enterprise":                                "acme",
+		"default_repository_permission":             "READ",
+		"ip_allow_list_enabled":                     "ENABLED",
+		"allow_private_repository_forking":          "DISABLED",
+		"members_can_change_repository_visibility":  "DISABLED",
+		"members_can_invite_collaborators":          "DISABLED",
+		"two_factor_required_setting":               "ENABLED",
+		"members_can_create_public_repositories":    false,
+		"members_can_delete_repository":             "DISABLED",
+		"notification_delivery_restriction_enabled": "ENABLED",
+		"saml_sso_url":                              "https://sso.example/saml",
+		"outside_collaborator_count":                2,
 	}
 	for k, v := range want {
 		if f[k] != v {
@@ -132,5 +150,29 @@ func TestEnterpriseNullSamlIsExplicitNull(t *testing.T) {
 	}
 	if oc, ok := f["outside_collaborators"].([]any); !ok || len(oc) != 0 {
 		t.Errorf("outside_collaborators: got %v, want []", f["outside_collaborators"])
+	}
+}
+
+func TestEnterpriseSecurityFacts(t *testing.T) {
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/enterprises/acme/code_security_and_analysis" {
+			t.Errorf("request path = %q, want enterprise code security settings", r.URL.Path)
+		}
+		_, _ = io.WriteString(w, `{"advanced_security_enabled_for_new_repositories":true,"secret_scanning_enabled_for_new_repositories":true,"secret_scanning_push_protection_enabled_for_new_repositories":false}`)
+	})
+	facts := enterpriseSecurityFacts(context.Background(), c, "acme")
+	if facts["advanced_security_enabled_for_new_repositories"] != true ||
+		facts["secret_scanning_enabled_for_new_repositories"] != true ||
+		facts["secret_scanning_push_protection_enabled_for_new_repositories"] != false {
+		t.Fatalf("enterprise security facts = %+v", facts)
+	}
+}
+
+func TestEnterpriseSecurityFactsUnreadable(t *testing.T) {
+	c := testClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	})
+	if facts := enterpriseSecurityFacts(context.Background(), c, "acme"); facts != nil {
+		t.Fatalf("unreadable enterprise settings should be unknown, got %+v", facts)
 	}
 }

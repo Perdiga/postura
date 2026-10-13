@@ -109,9 +109,13 @@ func Markdown(fs []engine.Finding, scopeDesc string) string {
 	fmt.Fprintf(&b, "_%d fail, %d unknown across %s_\n\n", c.Fail, c.Unknown, scopeDesc)
 
 	for _, g := range groupByRule(fs) {
-		var fail, unknown []engine.Finding
+		var fail, unknown, passWithNotes []engine.Finding
 		for _, f := range g.findings {
 			switch f.Status {
+			case engine.StatusPass:
+				if f.Notes != "" {
+					passWithNotes = append(passWithNotes, f)
+				}
 			case engine.StatusFail:
 				fail = append(fail, f)
 			case engine.StatusUnknown:
@@ -120,17 +124,20 @@ func Markdown(fs []engine.Finding, scopeDesc string) string {
 		}
 		fmt.Fprintf(&b, "### %s — %s (%s)\n\n", g.id, g.title, g.severity)
 		total := len(g.findings)
-		if len(fail) == 0 && len(unknown) == 0 {
+		if len(fail) == 0 && len(unknown) == 0 && len(passWithNotes) == 0 {
 			fmt.Fprintf(&b, "✅ all %d pass\n\n", total)
 			continue
 		}
 		fmt.Fprintf(&b, "_%d fail, %d unknown of %d checked_\n\n", len(fail), len(unknown), total)
 		b.WriteString("| Target | Status | Notes |\n|--------|--------|-------|\n")
 		for _, f := range fail {
-			fmt.Fprintf(&b, "| %s | ❌ fail | %s |\n", f.Target, f.Notes)
+			fmt.Fprintf(&b, "| %s | ❌ fail | %s |\n", markdownCell(f.Target), markdownCell(f.Notes))
 		}
 		for _, f := range unknown {
-			fmt.Fprintf(&b, "| %s | ⚠️ unknown | %s |\n", f.Target, f.Notes)
+			fmt.Fprintf(&b, "| %s | ⚠️ unknown | %s |\n", markdownCell(f.Target), markdownCell(f.Notes))
+		}
+		for _, f := range passWithNotes {
+			fmt.Fprintf(&b, "| %s | ✅ pass | %s |\n", markdownCell(f.Target), markdownCell(f.Notes))
 		}
 		if g.fixHint != "" {
 			fmt.Fprintf(&b, "\n**Fix:** %s\n", g.fixHint)
@@ -138,4 +145,11 @@ func Markdown(fs []engine.Finding, scopeDesc string) string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+func markdownCell(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", " ")
+	value = strings.ReplaceAll(value, "\n", " ")
+	value = strings.ReplaceAll(value, "\r", " ")
+	return strings.ReplaceAll(value, "|", `\|`)
 }

@@ -23,6 +23,9 @@ against a **per-target-configurable** policy baseline. Rules are data
 a different bar for each enterprise, org, or repo. It is **read-only** — it never mutates
 anything on GitHub — and **deterministic**, so it gates cleanly in CI.
 
+Full guides and reference documentation are in the [Docusaurus site](website/docs/index.md)
+([run it locally](website/)).
+
 ```console
 $ postura run --org acme --enterprise acme-inc --rules examples/rules.yaml
 ```

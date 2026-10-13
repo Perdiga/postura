@@ -1,6 +1,6 @@
 {
-  "extends": "@docusaurus/tsconfig",
-  "compilerOptions": {
-    "noEmit": true
-  }
+    "extends": "@docusaurus/tsconfig",
+    "compilerOptions": {
+        "noEmit": true
+    }
 }

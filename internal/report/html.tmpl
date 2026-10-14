@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub Well-Architected maturity report — postura</title>
+<style>
+:root{--fg:#1f2328;--muted:#59636e;--border:#d1d9e0;--bg:#f6f8fa;--pass:#1a7f37;--fail:#d1242f;--unk:#9a6700;
+--l0:#d1242f;--l1:#bc4c00;--l2:#0969da;--l3:#1a7f37}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;color:var(--fg);background:#fff}
+main{max-width:1200px;margin:0 auto;padding:32px 24px}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:20px;margin:40px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:16px;margin:24px 0 8px}
+a{color:#0969da;text-decoration:none}a:hover{text-decoration:underline}
+.muted{color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:16px}
+.card{border:1px solid var(--border);border-radius:8px;padding:16px;background:var(--bg)}
+.card .big{font-size:32px;font-weight:600}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;color:#fff;font-weight:600;font-size:12px;white-space:nowrap}
+.lvl0{background:var(--l0)}.lvl1{background:var(--l2)}.lvl2{background:var(--l3)}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:#eaeef2;margin:6px 0}
+.bar span{display:block;height:100%}
+.bar .p{background:var(--pass)}.bar .f{background:var(--fail)}.bar .u{background:var(--unk)}
+table{width:100%;border-collapse:collapse;margin:8px 0}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--bg);font-weight:600}
+td.num,th.num{text-align:right;white-space:nowrap}
+.pass{color:var(--pass)}.fail{color:var(--fail)}.unknown{color:var(--unk)}
+.sev{font-size:12px;padding:1px 6px;border-radius:4px;border:1px solid var(--border)}
+.sev-error{color:var(--fail);border-color:var(--fail)}.sev-warn{color:var(--unk);border-color:var(--unk)}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+details{margin:4px 0}summary{cursor:pointer}
+tr.target:has(+ tr.breakdown) td{border-bottom:none}
+tr.breakdown>td{padding-top:0}
+tr.breakdown table{margin:4px 0 8px;background:var(--bg);border-radius:6px}
+tr.breakdown th{background:transparent;font-size:12px}
+.targets{font-size:12px;color:var(--muted)}
+code{font-size:12px;background:var(--bg);padding:1px 4px;border-radius:4px}
+@media print{details{display:block}details>*{display:block}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>GitHub Well-Architected maturity report</h1>
+<div class="muted">Scope: {{.ScopeDesc}} · Generated {{.Generated}} by postura · Framework: <a href="{{.FrameworkURL}}">GitHub Well-Architected</a></div>
+</header>
+
+<section>
+<h2>Executive summary</h2>
+<div class="cards">
+<div class="card">
+<div class="muted">Checks passing</div>
+<div class="big">{{.Overall.Pct}}%</div>
+<div class="bar"><span class="p" style="width:{{pct .Overall.Pass .Overall.Total}}%"></span><span class="f" style="width:{{pct .Overall.Fail .Overall.Total}}%"></span><span class="u" style="width:{{pct .Overall.Unknown .Overall.Total}}%"></span></div>
+<div class="muted"><span class="pass">{{.Overall.Pass}} pass</span> · <span class="fail">{{.Overall.Fail}} fail</span> · <span class="unknown">{{.Overall.Unknown}} unknown</span></div>
+</div>
+<div class="card">
+<div class="muted">Results completeness</div>
+<div class="big {{if .Overall.Unknown}}unknown{{else}}pass{{end}}">{{.Overall.KnownPct}}%</div>
+{{- if .Overall.Unknown}}
+<div class="muted">{{.Overall.Unknown}} of {{.Overall.Total}} checks could not be read, so levels may be understated. Run <code>postura permissions check</code> or supply assessments in <code>--config</code>.</div>
+{{- else}}
+<div class="muted">Every check was scored.</div>
+{{- end}}
+</div>
+{{- range .Scopes}}
+<div class="card">
+<div class="muted">{{.Label}}</div>
+{{- if eq (len .Targets) 1}}
+{{- with index .Targets 0}}
+<div class="big"><span class="badge {{levelClass .Level}}">{{.LevelName}}</span></div>
+<div class="muted">{{.Name}} · {{.Pct}}% of checks passing</div>
+{{- end}}
+{{- else}}
+<div class="big">{{len .Targets}}</div>
+{{- $n := len .Targets}}
+<div class="bar">{{range $i, $c := .Distribution}}{{if $c}}<span class="{{levelClass $i}}" style="width:{{pct $c $n}}%" title="{{index $.LevelNames $i}}: {{$c}}"></span>{{end}}{{end}}</div>
+<div class="muted">{{range $i, $c := .Distribution}}{{if $c}}<span class="badge {{levelClass $i}}">{{index $.LevelNames $i}} {{$c}}</span> {{end}}{{end}}</div>
+{{- end}}
+</div>
+{{- end}}
+</div>
+</section>
+
+<section>
+<h2>Maturity model</h2>
+<p class="muted">Each check is tagged with a Well-Architected pillar and a maturity tier. A target's level is the lowest tier where it still has a failing or unknown <code>error</code> or <code>warn</code> check. <code>info</code> checks count toward scores and the roadmap but never hold a level back. Unknown results (facts postura could not read) never count as passing.</p>
+<div class="legend">
+<div><span class="badge lvl0">Start</span> Missing one or more <code>start</code> checks.</div>
+<div><span class="badge lvl1">Mature</span> All <code>start</code> checks pass; missing one or more <code>mature</code> checks.</div>
+<div><span class="badge lvl2">Advance</span> All <code>start</code> and <code>mature</code> checks pass; working through <code>advance</code> checks.</div>
+</div>
+</section>
+
+<section>
+<h2>Pillar scorecard</h2>
+<table>
+<thead><tr><th>Pillar</th>{{range .Scopes}}<th>{{.Label}}</th>{{end}}<th class="num">Overall</th></tr></thead>
+<tbody>
+{{- range .Pillars}}
+<tr>
+<td>{{if .URL}}<a href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}<div class="muted">{{.Summary}}</div></td>
+{{- range .Scopes}}
+<td>{{if .Total}}{{.Pct}}% <span class="muted">({{.Pass}}/{{.Total}}{{if .Unknown}}, {{.Unknown}} unknown{{end}})</span>
+<div class="bar"><span class="p" style="width:{{pct .Pass .Total}}%"></span><span class="f" style="width:{{pct .Fail .Total}}%"></span><span class="u" style="width:{{pct .Unknown .Total}}%"></span></div>{{else}}<span class="muted">—</span>{{end}}</td>
+{{- end}}
+<td class="num">{{if .Total}}<strong>{{.Pct}}%</strong><div class="muted">{{.Total}} checks{{if .Unknown}} · <span class="unknown">{{.KnownPct}}% readable</span>{{end}}</div>{{else}}<span class="muted">No automated checks — {{if .URL}}<a href="{{.URL}}">self-assess</a>{{else}}n/a{{end}}</span>{{end}}</td>
+</tr>
+{{- end}}
+</tbody>
+</table>
+</section>
+
+<section>
+<h2>Improvement roadmap</h2>
+{{- if not .Roadmap}}
+<p class="pass">Every check passes. Re-run regularly and review the <a href="{{.FrameworkURL}}">Well-Architected</a> recommendations for practices beyond automated checks.</p>
+{{- end}}
+{{- range .Roadmap}}
+<h3>{{.Heading}} <span class="muted">({{len .Gaps}} checks)</span></h3>
+<table>
+<thead><tr><th>Check</th><th>Pillar</th><th>Severity</th><th class="num">Fail</th><th class="num">Unknown</th><th>Remediation</th></tr></thead>
+<tbody>
+{{- range .Gaps}}
+<tr>
+<td><code>{{.ID}}</code> {{.Title}}
+<details><summary class="targets">{{.Scope}} targets</summary>
+{{- if .Failing}}<div class="targets"><span class="fail">Fail:</span> {{range $i, $t := .Failing}}{{if $i}}, {{end}}{{$t}}{{end}}</div>{{end}}
+{{- if .Unknown}}<div class="targets"><span class="unknown">Unknown:</span> {{range $i, $t := .Unknown}}{{if $i}}, {{end}}{{$t}}{{end}}</div>{{end}}
+</details></td>
+<td>{{if .PillarURL}}<a href="{{.PillarURL}}">{{.Pillar}}</a>{{else}}{{.Pillar}}{{end}}</td>
+<td><span class="sev sev-{{.Severity}}">{{.Severity}}</span>{{if eq .Severity "info"}}<div class="targets">not level-gating</div>{{end}}</td>
+<td class="num fail">{{len .Failing}}</td>
+<td class="num unknown">{{len .Unknown}}</td>
+<td>{{.FixHint}}</td>
+</tr>
+{{- end}}
+</tbody>
+</table>
+{{- end}}
+</section>
+
+{{- range .Scopes}}
+<section>
+<h2>{{.Label}}</h2>
+<table>
+<thead><tr><th>Target</th><th>Maturity</th><th class="num">Passing</th><th class="num">Unknown</th>{{range $.PillarNames}}<th class="num">{{.}}</th>{{end}}</tr></thead>
+<tbody>
+{{- range .Targets}}
+<tr class="target">
+<td><strong>{{.Name}}</strong></td>
+<td><span class="badge {{levelClass .Level}}">{{.LevelName}}</span></td>
+<td class="num">{{.Pct}}% <span class="muted">({{.Pass}}/{{.Total}})</span></td>
+<td class="num {{if .Unknown}}unknown{{else}}muted{{end}}">{{.Unknown}}</td>
+{{- range .Pillars}}
+<td class="num">{{if .Total}}<span class="{{if eq .Pct 100}}pass{{else if .Fail}}fail{{else}}unknown{{end}}" title="{{.Pass}} pass, {{.Fail}} fail, {{.Unknown}} unknown">{{.Pct}}%</span> <span class="muted">({{.Total}})</span>{{else}}<span class="muted">—</span>{{end}}</td>
+{{- end}}
+</tr>
+{{- if or .Fail .Unknown}}
+<tr class="breakdown"><td colspan="{{add 4 (len $.PillarNames)}}">
+<details><summary class="targets">{{.Fail}} fail, {{.Unknown}} unknown</summary>
+<table>
+<thead><tr><th></th><th>Check</th><th>Pillar</th><th>Maturity</th><th>Severity</th><th>Remediation</th></tr></thead>
+<tbody>
+{{- range .Findings}}{{if ne .Status "pass"}}
+<tr><td class="{{.Status}}">{{statusIcon .Status}}</td><td><code>{{.ID}}</code> {{.Title}}{{if .Notes}}<div class="targets">{{.Notes}}</div>{{end}}</td><td class="muted">{{.PrincipleDomain}}</td><td class="muted">{{.MaturityLevel}}</td><td><span class="sev sev-{{.Severity}}">{{.Severity}}</span></td><td>{{.FixHint}}</td></tr>
+{{- end}}{{end}}
+</tbody>
+</table>
+</details>
+</td></tr>
+{{- end}}
+{{- end}}
+</tbody>
+</table>
+</section>
+{{- end}}
+
+<footer>
+<h2>About this report</h2>
+<p class="muted">Results are produced by deterministic CEL rules evaluated against settings read from the GitHub API, plus any human assessments supplied in the policy config. Automated checks cover a subset of the
+<a href="{{.FrameworkURL}}">GitHub Well-Architected</a> framework; pair this report with the
+<a href="{{.FrameworkURL}}/overview/getting-started-checklist">getting-started checklist</a> and the
+<a href="{{.FrameworkURL}}/overview/about-the-assessment">Well-Architected assessment</a> for practices that cannot be verified from settings alone.</p>
+</footer>
+</main>
+</body>
+</html>

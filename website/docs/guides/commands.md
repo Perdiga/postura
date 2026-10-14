@@ -24,7 +24,7 @@ Syntax: `postura run --rules RULES [owner/repo ...]`. Without repository argumen
 | `--org` | inferred or none | Organization(s) to audit; repeatable or comma-separated. |
 | `--enterprise` | none | Enterprise slug to audit. Requires enterprise scope access. |
 | `--scope` | all applicable | `enterprise`, `org`, and/or `repos`; repeatable or comma-separated. |
-| `--format` | `md` | `md`, `json`, or `sarif`. |
+| `--format` | `md` | `md`, `json`, `sarif`, or `html`. |
 | `--fail-on` | `error` | Exit non-zero for a fail at or above `error`, `warn`, `info`, or `none`. |
 | `--fail-on-unknown` | `false` | Also fail for unknown findings at or above `--fail-on`. |
 

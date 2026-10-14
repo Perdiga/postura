@@ -39,13 +39,15 @@ assessments:
   orgs:
     acme:
       ORG-11:
+        title: "Disaster recovery and backup procedures are tested" # optional guidance
+        question: "When did you last restore GitHub data from backup?" # optional guidance
         status: compliant
         evidence: "A restore exercise completed on the production backup set."
         reviewed_at: "2026-10-01"
         reviewed_by: "security-team"
 ```
 
-Allowed status values are `compliant`, `partial`, `non_compliant`, and `not_applicable`. Every entry requires non-empty evidence and reviewer, plus `reviewed_at` in `YYYY-MM-DD` format. `assessments.as_of` and positive `max_age_days` are required when entries exist. Dates after `as_of` are rejected. Missing or stale assessments are unknown; `not_applicable` skips the check. Evidence and review metadata are included in findings.
+Allowed status values are `compliant`, `partial`, `non_compliant`, and `not_applicable`. Every entry requires non-empty evidence and reviewer, plus `reviewed_at` in `YYYY-MM-DD` format. `title` and `question` are optional reviewer guidance and do not affect scoring. `assessments.as_of` and positive `max_age_days` are required when entries exist. Dates after `as_of` are rejected. Missing or stale assessments are unknown; `not_applicable` skips the check. Evidence and review metadata are included in findings.
 
 Assessments are attestations, not API-verified facts. The freshness calculation uses the configured `as_of` date so evaluation is deterministic.
 
@@ -57,4 +59,4 @@ Let posture create entries for all assessment-marked rules:
 postura config template --rules examples/rules.yaml --org acme --output assessments.yaml
 ```
 
-With an org and no repository arguments, the command discovers non-forked repositories. Pass `acme/api` and `acme/web` to limit repository entries, or use `--enterprise` for enterprise assessments. The generator does not overwrite an existing file, and blank values must be filled or removed before evaluation. It generates assessments only, not policy overrides.
+With an org and no repository arguments, the command discovers non-forked repositories. Pass `acme/api` and `acme/web` to limit repository entries, or use `--enterprise` for enterprise assessments. The generator does not overwrite an existing file, and blank values must be filled or removed before evaluation. Each entry is pre-filled with the rule's `title` and `question` so the reviewer knows what to answer in `evidence`. It generates assessments only, not policy overrides.

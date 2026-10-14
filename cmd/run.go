@@ -31,7 +31,7 @@ func init() {
 	f.StringVar(&runEnterprise, "enterprise", "", "enterprise slug to also audit")
 	f.StringVar(&runConfig, "config", "", "policy-config YAML with per-target overrides")
 	f.StringVar(&runRules, "rules", "", "ruleset YAML (required; see examples/rules.yaml)")
-	f.StringVar(&runFormat, "format", "md", "output format: md | json | sarif")
+	f.StringVar(&runFormat, "format", "md", "output format: md | json | sarif | html")
 	f.StringVar(&runFailOn, "fail-on", "error", "exit non-zero if a fail at/above this severity: error | warn | info | none")
 	f.BoolVar(&runFailOnUnknown, "fail-on-unknown", false, "also exit non-zero on an unknown finding at/above --fail-on (an under-scoped token can't pass the gate)")
 	f.StringSliceVar(&runScope, "scope", nil, "limit to scopes: enterprise|org|repos (repeatable; default: all applicable)")

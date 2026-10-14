@@ -31,6 +31,9 @@ type Finding struct {
 	Status   Status `json:"status"`
 	Notes    string `json:"notes,omitempty"`
 	FixHint  string `json:"fix_hint,omitempty"`
+
+	PrincipleDomain string `json:"principle_domain,omitempty"`
+	MaturityLevel   string `json:"maturity_level,omitempty"`
 }
 
 // Target is one fact-bearing entity to evaluate rules against.
@@ -106,7 +109,8 @@ func (e *Engine) Evaluate(targets []Target, cfg *rules.Config, enterprise string
 			f := Finding{
 				ID: c.rule.ID, Scope: string(e.scope), Severity: res.Severity,
 				Title: c.rule.Title, Target: t.Name, FixHint: c.rule.FixHint,
-				Notes: assessmentNotes(res.Cfg),
+				Notes:           assessmentNotes(res.Cfg),
+				PrincipleDomain: c.rule.PrincipleDomain, MaturityLevel: c.rule.MaturityLevel,
 			}
 			if assessment, ok := res.Cfg["assessment"].(map[string]any); ok &&
 				assessment["status"] != "not_applicable" && assessment["stale"] == true {

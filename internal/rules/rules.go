@@ -18,19 +18,38 @@ const (
 	ScopeRepo       Scope = "repo"
 )
 
+// Well-Architected pillar names supported in rule metadata.
+const (
+	DomainProductivity        = "Productivity"
+	DomainCollaboration       = "Collaboration"
+	DomainApplicationSecurity = "Application Security"
+	DomainGovernance          = "Governance"
+	DomainArchitecture        = "Architecture"
+)
+
+// Maturity levels follow GitHub's start → mature → advance progression.
+const (
+	MaturityStart   = "start"
+	MaturityMature  = "mature"
+	MaturityAdvance = "advance"
+)
+
 // Rule is one policy check. The CEL expressions all evaluate to bool and read
 // fact fields as top-level variables plus `cfg` (the rule's merged config).
 type Rule struct {
-	ID         string         `yaml:"id"`
-	Scope      Scope          `yaml:"scope"`
-	Severity   string         `yaml:"severity"`
-	Title      string         `yaml:"title"`
-	Assessment bool           `yaml:"assessment"`
-	Pass       string         `yaml:"pass"`         // true => compliant
-	Applies    string         `yaml:"applies_when"` // optional: false => skip (no row)
-	Config     map[string]any `yaml:"config"`       // default knobs, overridable per target
-	Enabled    *bool          `yaml:"enabled"`      // baseline on/off; nil => on. Config can override per target.
-	FixHint    string         `yaml:"fix_hint"`
+	ID              string         `yaml:"id"`
+	Scope           Scope          `yaml:"scope"`
+	Severity        string         `yaml:"severity"`
+	Title           string         `yaml:"title"`
+	PrincipleDomain string         `yaml:"principle_domain"`
+	MaturityLevel   string         `yaml:"maturity_level"`
+	Assessment      bool           `yaml:"assessment"`
+	Question        string         `yaml:"question"`     // guides the human answering an assessment rule
+	Pass            string         `yaml:"pass"`         // true => compliant
+	Applies         string         `yaml:"applies_when"` // optional: false => skip (no row)
+	Config          map[string]any `yaml:"config"`       // default knobs, overridable per target
+	Enabled         *bool          `yaml:"enabled"`      // baseline on/off; nil => on. Config can override per target.
+	FixHint         string         `yaml:"fix_hint"`
 }
 
 // Ruleset is the full ordered list of rules.
@@ -52,6 +71,13 @@ func Load(data []byte) (*Ruleset, error) {
 }
 
 var validSeverity = map[string]bool{"error": true, "warn": true, "info": true}
+var validPrincipleDomain = map[string]bool{
+	DomainProductivity: true, DomainCollaboration: true, DomainApplicationSecurity: true,
+	DomainGovernance: true, DomainArchitecture: true,
+}
+var validMaturityLevel = map[string]bool{
+	MaturityStart: true, MaturityMature: true, MaturityAdvance: true,
+}
 
 func (rs *Ruleset) validate() error {
 	seen := map[string]bool{}
@@ -70,6 +96,12 @@ func (rs *Ruleset) validate() error {
 		}
 		if !validSeverity[r.Severity] {
 			return fmt.Errorf("rule %s: invalid severity %q", r.ID, r.Severity)
+		}
+		if r.PrincipleDomain != "" && !validPrincipleDomain[r.PrincipleDomain] {
+			return fmt.Errorf("rule %s: invalid principle_domain %q", r.ID, r.PrincipleDomain)
+		}
+		if r.MaturityLevel != "" && !validMaturityLevel[r.MaturityLevel] {
+			return fmt.Errorf("rule %s: invalid maturity_level %q", r.ID, r.MaturityLevel)
 		}
 		if r.Pass == "" {
 			return fmt.Errorf("rule %s: missing pass expression", r.ID)

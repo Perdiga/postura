@@ -20,6 +20,11 @@ func TestExampleRulesetCompiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load example ruleset: %v", err)
 	}
+	for _, rule := range rs.Rules {
+		if rule.PrincipleDomain == "" || rule.MaturityLevel == "" {
+			t.Errorf("rule %s is missing Well-Architected metadata", rule.ID)
+		}
+	}
 
 	scopes := []struct {
 		scope rules.Scope

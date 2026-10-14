@@ -163,7 +163,7 @@ Shared by `run` and `eval`:
 | ----------- | -------------------------------- | -------------------------------------------------------------------------------- |
 | `--config`  | —                                | policy-config YAML with per-target overrides                                     |
 | `--rules`   | — (**required**)                 | ruleset YAML (see [`examples/rules.yaml`](examples/rules.yaml))                  |
-| `--format`  | `md`                             | `md` \| `json` \| `sarif`                                                        |
+| `--format`  | `md`                             | `md` \| `json` \| `sarif` \| `html`                                              |
 | `--fail-on` | `error` (`run`), `none` (`eval`) | exit non-zero on a fail at/above this severity (`error`\|`warn`\|`info`\|`none`) |
 
 Shared by `run` and `collect` (the commands that talk to GitHub):
@@ -176,6 +176,8 @@ Shared by `run` and `collect` (the commands that talk to GitHub):
 
 `eval` takes its org/enterprise from the facts file, so it has none of the GitHub-facing
 flags above. SARIF output is uploadable to GitHub code scanning and usable as audit evidence.
+HTML output is a self-contained maturity report for enterprise/org owners, scored against the
+[GitHub Well-Architected](https://learn.github.com/well-architected) pillars.
 
 ### Examples
 
@@ -249,6 +251,8 @@ top-level variables) plus `cfg` (the rule's merged config):
 - **`enabled: false`** — off by default; opt in per target via config.
 - **`assessment: true`** — the rule consumes a human-reviewed entry from `assessments`;
   `postura config template` uses this marker to generate target-specific blank inputs.
+- **`question`** — for assessment rules, the question the reviewer should answer; copied
+  into generated templates alongside the rule's `title`.
 
 The whole ruleset is CEL-compiled at load, so a typo'd field name (an undeclared variable)
 fails fast there. When a fact a rule needs can't be read (e.g. missing token scope), the
@@ -288,7 +292,9 @@ check. Findings include the supplied evidence and review metadata. See the comme
 selected targets. With `--org acme` and no repository arguments, it discovers all
 non-forked repositories; pass `owner/repo` arguments to narrow the repository set. The
 command needs a GitHub token only when it discovers repositories, writes `config.yaml` by
-default, and refuses to overwrite an existing file. Blank fields must be completed before
+default, and refuses to overwrite an existing file. Each entry is pre-filled with the rule's
+`title` and `question` to guide the reviewer; these are informational and do not affect
+scoring. Blank fields must be completed before
 the config can be used. The generated file contains human assessments only, not
 machine-collected GitHub settings or per-target policy overrides.
 

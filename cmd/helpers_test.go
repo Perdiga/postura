@@ -2,6 +2,27 @@ package cmd
 
 import "testing"
 
+func TestDecodeText(t *testing.T) {
+	want := `{"a":"é"}`
+	utf16le := []byte{0xFF, 0xFE}
+	utf16be := []byte{0xFE, 0xFF}
+	for _, r := range want {
+		utf16le = append(utf16le, byte(r), byte(r>>8))
+		utf16be = append(utf16be, byte(r>>8), byte(r))
+	}
+	cases := map[string][]byte{
+		"plain":    []byte(want),
+		"utf8 bom": append([]byte{0xEF, 0xBB, 0xBF}, want...),
+		"utf16le":  utf16le,
+		"utf16be":  utf16be,
+	}
+	for name, in := range cases {
+		if got := string(decodeText(in)); got != want {
+			t.Errorf("%s: got %q, want %q", name, got, want)
+		}
+	}
+}
+
 func TestParseScopes(t *testing.T) {
 	tests := []struct {
 		name          string

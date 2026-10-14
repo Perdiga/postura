@@ -18,8 +18,33 @@ When a required fact is absent because posture could not read it, the result is 
 | `md` | Human-readable report; default for `run`. |
 | `json` | Structured findings for scripts and integrations. |
 | `sarif` | Static Analysis Results Interchange Format for code scanning and audit evidence. |
+| `html` | Self-contained maturity report for enterprise and org owners. |
 
 SARIF levels map from rule severity: `error` becomes `error`, `warn` becomes `warning`, and `info` becomes `note`.
+
+## HTML maturity report
+
+```bash
+postura run --enterprise acme-ent --org acme --format html --fail-on none \
+  --rules examples/rules.yaml > postura.html
+```
+
+The HTML report scores posture against the [GitHub Well-Architected](https://learn.github.com/well-architected) pillars (Productivity, Collaboration, Application Security, Governance, Architecture) using each rule's `principle_domain` and `maturity_level`. It contains:
+
+- **Executive summary** — overall pass rate, the enterprise's maturity level, and the distribution of orgs and repositories across levels.
+- **Pillar scorecard** — pass rate per pillar for each scope. Pillars without automated checks link to the framework for self-assessment.
+- **Improvement roadmap** — failing and unknown checks grouped by the maturity tier they block, ordered by severity and number of affected targets.
+- **Per-target tables** — each enterprise, org, and repository with its maturity level, per-pillar scores, and expandable failing checks.
+
+Maturity levels follow GitHub's start → mature → advance progression. A target's level is the lowest tier where it still has a failing or unknown check:
+
+| Level | Meaning |
+| --- | --- |
+| **Start** | Missing one or more `start` checks. |
+| **Mature** | All `start` checks pass; missing one or more `mature` checks. |
+| **Advance** | All `start` and `mature` checks pass; `advance` checks are the remaining roadmap. |
+
+Only `error` and `warn` checks gate a level (after any per-target severity override in `--config`); `info` checks count toward scores and appear in the roadmap but never hold a target back. The report also shows check counts per pillar and target, and a results-completeness figure: the share of checks postura could read. A low figure means unknown results may be understating maturity. Unknown results block a level, and rules without `maturity_level` do not affect it.
 
 ## Exit behavior
 

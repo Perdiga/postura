@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os/exec"
 	"strings"
+	"time"
+	"unicode/utf16"
 
 	"os"
 
@@ -35,7 +38,29 @@ func loadConfig(path string) (*rules.Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read config %s: %w", path, err)
 	}
-	return rules.LoadConfig(data)
+	return rules.LoadConfig(decodeText(data))
+}
+
+// decodeText strips a UTF-8 BOM and converts UTF-16 (with BOM) to UTF-8, so files
+// written by Windows PowerShell's `>` redirect still parse.
+func decodeText(b []byte) []byte {
+	switch {
+	case bytes.HasPrefix(b, []byte{0xEF, 0xBB, 0xBF}):
+		return b[3:]
+	case bytes.HasPrefix(b, []byte{0xFF, 0xFE}), bytes.HasPrefix(b, []byte{0xFE, 0xFF}):
+		big := b[0] == 0xFE
+		b = b[2:]
+		u := make([]uint16, len(b)/2)
+		for i := range u {
+			if big {
+				u[i] = uint16(b[2*i])<<8 | uint16(b[2*i+1])
+			} else {
+				u[i] = uint16(b[2*i+1])<<8 | uint16(b[2*i])
+			}
+		}
+		return []byte(string(utf16.Decode(u)))
+	}
+	return b
 }
 
 // resolveToken finds a GitHub token from the environment, falling back to the
@@ -164,8 +189,14 @@ func writeReport(w io.Writer, findings []engine.Finding, format, scope string) e
 			return err
 		}
 		_, _ = fmt.Fprintln(w, string(b))
+	case "html":
+		b, err := report.HTML(findings, scope, time.Now())
+		if err != nil {
+			return err
+		}
+		_, _ = w.Write(b)
 	default:
-		return fmt.Errorf("unknown format %q (md|json|sarif)", format)
+		return fmt.Errorf("unknown format %q (md|json|sarif|html)", format)
 	}
 	return nil
 }

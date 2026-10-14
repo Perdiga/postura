@@ -10,7 +10,7 @@ import (
 func TestGenerateAssessmentTemplate(t *testing.T) {
 	rs := &Ruleset{Rules: []Rule{
 		{ID: "ENT-H1", Scope: ScopeEnterprise, Assessment: true},
-		{ID: "ORG-H1", Scope: ScopeOrg, Assessment: true},
+		{ID: "ORG-H1", Scope: ScopeOrg, Assessment: true, Title: "Backups are tested", Question: "When was the last restore test?"},
 		{ID: "REPO-H1", Scope: ScopeRepo, Assessment: true},
 		{ID: "REPO-AUTO", Scope: ScopeRepo},
 	}}
@@ -43,8 +43,9 @@ func TestGenerateAssessmentTemplate(t *testing.T) {
 	if len(got.Assessments.Orgs) != 2 || len(got.Assessments.Repos) != 2 || len(got.Assessments.Enterprises) != 1 {
 		t.Fatalf("generated targets = %+v", got.Assessments)
 	}
-	if got.Assessments.Orgs["acme"]["ORG-H1"] != (AssessmentInput{}) {
-		t.Errorf("org assessment should be blank, got %+v", got.Assessments.Orgs["acme"]["ORG-H1"])
+	want := AssessmentInput{Title: "Backups are tested", Question: "When was the last restore test?"}
+	if got.Assessments.Orgs["acme"]["ORG-H1"] != want {
+		t.Errorf("org assessment should carry only rule guidance, got %+v", got.Assessments.Orgs["acme"]["ORG-H1"])
 	}
 	if _, exists := got.Assessments.Repos["acme/web"]["REPO-AUTO"]; exists {
 		t.Error("non-assessment rules must not appear in the template")

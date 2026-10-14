@@ -32,6 +32,9 @@ type AssessmentConfig struct {
 }
 
 type AssessmentInput struct {
+	// Title and Question are copied from the rule by `config template` as reviewer guidance; they don't affect scoring.
+	Title      string `yaml:"title,omitempty"`
+	Question   string `yaml:"question,omitempty"`
 	Status     string `yaml:"status"`
 	Evidence   string `yaml:"evidence"`
 	ReviewedAt string `yaml:"reviewed_at"`

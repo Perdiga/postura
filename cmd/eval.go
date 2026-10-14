@@ -26,7 +26,7 @@ func init() {
 	f := evalCmd.Flags()
 	f.StringVar(&evalConfig, "config", "", "policy-config YAML with per-target overrides")
 	f.StringVar(&evalRules, "rules", "", "ruleset YAML (required; see examples/rules.yaml)")
-	f.StringVar(&evalFormat, "format", "md", "output format: md | json | sarif")
+	f.StringVar(&evalFormat, "format", "md", "output format: md | json | sarif | html")
 	f.StringVar(&evalFailOn, "fail-on", "none", "exit non-zero if a fail at/above this severity: error | warn | info | none (eval default: none)")
 	f.BoolVar(&evalFailOnUnknown, "fail-on-unknown", false, "also exit non-zero on an unknown finding at/above --fail-on")
 	_ = evalCmd.MarkFlagRequired("rules")
@@ -38,6 +38,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	data = decodeText(data)
 	var f Facts
 	if err := json.Unmarshal(data, &f); err != nil {
 		return fmt.Errorf("parse facts: %w", err)

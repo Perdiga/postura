@@ -11,6 +11,8 @@ rules:
     scope: enterprise
     severity: error
     title: SAML single sign-on is configured for the enterprise
+    principle_domain: Governance
+    maturity_level: start
     pass: saml_sso_url != null
     fix_hint: Enterprise Settings -> Authentication security -> configure SAML single sign-on
 
@@ -18,6 +20,8 @@ rules:
     scope: enterprise
     severity: warn
     title: Enterprise base repository permission is not write/admin
+    principle_domain: Governance
+    maturity_level: start
     pass: >-
       (default_repository_permission == null ? "NO_POLICY" : default_repository_permission)
         in ["NO_POLICY", "NONE", "READ"]
@@ -27,7 +31,9 @@ rules:
     scope: enterprise
     severity: info
     title: IP allow list is enabled for the enterprise
-    enabled: false # opt-in: enable per enterprise in --config when network policy requires it
+    principle_domain: Governance
+    maturity_level: mature
+    enabled: true # opt-in: enable per enterprise in --config when network policy requires it
     pass: ip_allow_list_enabled == "ENABLED"
     fix_hint: Enterprise Settings -> Authentication security -> Enable IP allow list
 
@@ -35,6 +41,8 @@ rules:
     scope: enterprise
     severity: warn
     title: Private/internal repository forking is restricted
+    principle_domain: Governance
+    maturity_level: start
     config:
       allowed_forking: ["DISABLED", "NO_POLICY"] # tighten to ["DISABLED"] to forbid deferral
     pass: allow_private_repository_forking in cfg.allowed_forking
@@ -44,6 +52,8 @@ rules:
     scope: enterprise
     severity: error
     title: Enterprise has no outside collaborators
+    principle_domain: Governance
+    maturity_level: mature
     pass: outside_collaborator_count == 0
     fix_hint: "Enterprise -> People -> Outside collaborators: convert to members or remove"
 
@@ -52,6 +62,8 @@ rules:
     scope: org
     severity: error
     title: Two-factor authentication is enforced org-wide
+    principle_domain: Governance
+    maturity_level: start
     pass: two_factor_requirement_enabled == true
     fix_hint: Org Settings -> Authentication security -> Require two-factor authentication
 
@@ -59,6 +71,8 @@ rules:
     scope: org
     severity: warn
     title: Owner/admin count is proportionate to org size
+    principle_domain: Governance
+    maturity_level: mature
     config:
       max_admins: 5
       max_admin_ratio: 0.25
@@ -71,6 +85,8 @@ rules:
     scope: org
     severity: warn
     title: Outside collaborators are known and current
+    principle_domain: Governance
+    maturity_level: mature
     config:
       allowed_collaborators: [] # allowlist expected outside-collaborator logins per org
     pass: outside_collaborators.all(c, c in cfg.allowed_collaborators)
@@ -80,6 +96,8 @@ rules:
     scope: org
     severity: warn
     title: Default member repository permission is not write/admin
+    principle_domain: Governance
+    maturity_level: start
     pass: >-
       (default_repository_permission == null ? "none" : default_repository_permission)
         in ["none", "read"]
@@ -89,6 +107,8 @@ rules:
     scope: org
     severity: info
     title: No member invitations pending longer than the allowed age
+    principle_domain: Governance
+    maturity_level: mature
     config:
       max_invite_age_days: 30
     pass: invitations.all(i, i.age_days == null || i.age_days <= cfg.max_invite_age_days)
@@ -98,6 +118,8 @@ rules:
     scope: org
     severity: warn
     title: Members cannot create repositories
+    principle_domain: Governance
+    maturity_level: start
     pass: members_can_create_repositories == false
     fix_hint: "Org Settings -> Member privileges -> Repository creation: disable member repo creation"
 
@@ -105,6 +127,8 @@ rules:
     scope: org
     severity: warn
     title: New repositories get secret scanning, push protection, and Dependabot by default
+    principle_domain: Application Security
+    maturity_level: mature
     pass: >-
       secret_scanning_enabled_for_new_repositories == true &&
       secret_scanning_push_protection_enabled_for_new_repositories == true &&
@@ -115,6 +139,8 @@ rules:
     scope: org
     severity: warn
     title: Members cannot fork private/internal repositories
+    principle_domain: Governance
+    maturity_level: start
     pass: members_can_fork_private_repositories == false
     fix_hint: "Org Settings -> Member privileges -> Repository forking: disable forking of private/internal repos"
 
@@ -122,6 +148,8 @@ rules:
     scope: org
     severity: info
     title: Org teams are private (privacy = closed)
+    principle_domain: Governance
+    maturity_level: start
     config:
       allowed_secret_teams: [] # teams intentionally kept secret
     pass: teams.all(t, t.privacy == "closed" || t.slug in cfg.allowed_secret_teams)
@@ -131,6 +159,8 @@ rules:
     scope: org
     severity: warn
     title: Organization-role grants of broad repo access are intentional and minimal
+    principle_domain: Governance
+    maturity_level: advance
     config:
       broad_role_markers: ["admin", "write", "maintain"] # role-name substrings treated as broad
       allowed_broad_teams: [] # teams permitted to hold a broad org role
@@ -146,6 +176,8 @@ rules:
     scope: repo
     severity: error
     title: Default branch requires a pull request before merging
+    principle_domain: Governance
+    maturity_level: start
     pass: archived == true || protection.required_pull_request_reviews == true
     fix_hint: Repo Settings -> Branches/Rules -> require a pull request before merging on the default branch (add push bots to bypass_actors as actor_type=Integration)
 
@@ -153,6 +185,8 @@ rules:
     scope: repo
     severity: error
     title: At least one approving review is required
+    principle_domain: Collaboration
+    maturity_level: start
     pass: archived == true || protection.required_approving_review_count >= 1
     fix_hint: Branch protection / ruleset -> require approvals (>= 1) on the default branch
 
@@ -160,6 +194,8 @@ rules:
     scope: repo
     severity: error
     title: Secret scanning is enabled (public repos)
+    principle_domain: Application Security
+    maturity_level: start
     applies_when: archived != true && visibility == "public"
     pass: secret_scanning == "enabled"
     fix_hint: Repo Settings -> Code security and analysis -> enable Secret scanning (private/internal need GitHub Advanced Security)
@@ -168,6 +204,8 @@ rules:
     scope: repo
     severity: warn
     title: Dependabot / vulnerability alerts are enabled
+    principle_domain: Application Security
+    maturity_level: start
     pass: archived == true || vulnerability_alerts == true
     fix_hint: Repo Settings -> Code security and analysis -> enable Dependabot alerts
 
@@ -175,6 +213,8 @@ rules:
     scope: repo
     severity: info
     title: CODEOWNERS file is present
+    principle_domain: Collaboration
+    maturity_level: start
     pass: archived == true || codeowners == true
     fix_hint: Add a CODEOWNERS file in .github/, repo root, or docs/
 
@@ -182,6 +222,8 @@ rules:
     scope: repo
     severity: info
     title: Public repository declares a license
+    principle_domain: Governance
+    maturity_level: start
     pass: visibility != "public" || (license != null && license != "NOASSERTION")
     fix_hint: Add a LICENSE file so the repository's license is detected
 
@@ -189,7 +231,9 @@ rules:
     scope: repo
     severity: info
     title: Default branch is governed by at least one active ruleset
-    enabled: false # opt-in: for orgs standardizing on rulesets over classic protection
+    principle_domain: Governance
+    maturity_level: mature
+    enabled: true # opt-in: for orgs standardizing on rulesets over classic protection
     pass: archived == true || ruleset_count >= 1
     fix_hint: "Repo Settings -> Rules: add a branch ruleset targeting the default branch"
 
@@ -197,7 +241,9 @@ rules:
     scope: repo
     severity: info
     title: Archived repositories are not public
-    enabled: false # opt-in: enable per org where public archives are unwanted
+    principle_domain: Governance
+    maturity_level: mature
+    enabled: true # opt-in: enable per org where public archives are unwanted
     applies_when: archived == true
     pass: visibility != "public"
     fix_hint: "Archived repos are read-only, so exposure is the only risk. To privatize: unarchive -> set private -> re-archive."
@@ -206,6 +252,8 @@ rules:
     scope: repo
     severity: error
     title: Push protection is enabled (public repos)
+    principle_domain: Application Security
+    maturity_level: start
     applies_when: archived != true && visibility == "public"
     pass: secret_scanning_push_protection == "enabled"
     fix_hint: Repo Settings -> Code security and analysis -> enable Push protection
@@ -214,6 +262,8 @@ rules:
     scope: repo
     severity: info
     title: Default branch requires code owner review
+    principle_domain: Collaboration
+    maturity_level: mature
     pass: archived == true || protection.require_code_owner_reviews == true
     fix_hint: Branch protection / ruleset on the default branch -> Require review from Code Owners
 
@@ -221,6 +271,8 @@ rules:
     scope: repo
     severity: warn
     title: No team holds admin/maintain via a direct per-repo grant (push cap)
+    principle_domain: Governance
+    maturity_level: mature
     pass: teams.all(t, t.permission != "admin" && t.permission != "maintain")
     fix_hint: "Cap direct (github_team_repository) team grants at 'push'; downgrade any team holding admin/maintain. Org-role grants are audited by ORG-10."
 
@@ -228,6 +280,8 @@ rules:
     scope: repo
     severity: warn
     title: PR-bypass is restricted to automation (bots/Apps)
+    principle_domain: Governance
+    maturity_level: advance
     applies_when: archived != true && protection.required_pull_request_reviews == true
     pass: protection.pr_bypass_actor_types.all(a, a == "Integration")
     fix_hint: "On any ruleset that requires a PR, keep bypass to bot/App actors only (actor_type Integration); remove Team/RepositoryRole/OrganizationAdmin/user bypass."
@@ -236,6 +290,8 @@ rules:
     scope: repo
     severity: info
     title: Automated dependency updates are configured (Dependabot or Renovate)
+    principle_domain: Application Security
+    maturity_level: mature
     pass: archived == true || dependabot_config == true || renovate_config == true
     fix_hint: "Add .github/dependabot.yml (version updates) or a Renovate config (renovate.json)"
 
@@ -249,6 +305,8 @@ rules:
     scope: repo
     severity: warn
     title: CODEOWNERS file has no unknown owners or syntax errors
+    principle_domain: Collaboration
+    maturity_level: mature
     applies_when: archived != true && codeowners == true
     pass: codeowners_error_count == 0
     fix_hint: "Open the CODEOWNERS file on GitHub to see the flagged lines; an unknown owner usually means that user or team lacks write access on the repo"
@@ -262,6 +320,8 @@ rules:
     scope: repo
     severity: error
     title: Required code-owner review is not silently voided by a broken CODEOWNERS
+    principle_domain: Collaboration
+    maturity_level: advance
     applies_when: archived != true && protection.require_code_owner_reviews == true
     pass: codeowners == true && codeowners_error_count == 0
     fix_hint: "Code-owner review is required but GitHub cannot resolve every CODEOWNERS entry (or there is no CODEOWNERS at all); the paths those lines should own are merging without owner approval. Fix the flagged owners, add the file, or drop the requirement."
@@ -285,8 +345,10 @@ rules:
   - id: REPO-16
     scope: repo
     severity: warn
-    enabled: false
+    enabled: true
     title: Open critical/high Dependabot alerts are within the remediation SLA
+    principle_domain: Application Security
+    maturity_level: advance
     config:
       critical_days: 7
       high_days: 30
@@ -304,6 +366,8 @@ rules:
     scope: repo
     severity: error
     title: Default branch requires at least one status check
+    principle_domain: Governance
+    maturity_level: start
     pass: archived == true || protection.required_status_checks == true
     fix_hint: "Branch protection / ruleset -> require at least one status check before merging"
 
@@ -311,6 +375,8 @@ rules:
     scope: repo
     severity: warn
     title: Required status checks apply to the latest commit
+    principle_domain: Governance
+    maturity_level: mature
     pass: archived == true || protection.branches_up_to_date == true
     fix_hint: "Branch protection / ruleset -> require branches to be up to date before merging"
 
@@ -318,6 +384,8 @@ rules:
     scope: repo
     severity: warn
     title: New commits dismiss stale approvals
+    principle_domain: Collaboration
+    maturity_level: mature
     pass: archived == true || protection.dismiss_stale_reviews == true
     fix_hint: "Branch protection / ruleset -> dismiss stale pull request approvals when new commits are pushed"
 
@@ -325,6 +393,8 @@ rules:
     scope: repo
     severity: warn
     title: Pull request conversations must be resolved before merging
+    principle_domain: Collaboration
+    maturity_level: mature
     pass: archived == true || protection.require_conversation_resolution == true
     fix_hint: "Branch protection / ruleset -> require conversation resolution before merging"
 
@@ -332,6 +402,8 @@ rules:
     scope: repo
     severity: warn
     title: Default branch requires signed commits
+    principle_domain: Application Security
+    maturity_level: mature
     pass: archived == true || protection.require_signed_commits == true
     fix_hint: "Branch protection / ruleset -> require signed commits on the default branch"
 
@@ -339,6 +411,8 @@ rules:
     scope: repo
     severity: info
     title: Default branch requires linear history
+    principle_domain: Governance
+    maturity_level: mature
     pass: archived == true || protection.require_linear_history == true
     fix_hint: "Branch protection / ruleset -> require linear history on the default branch"
 
@@ -346,6 +420,8 @@ rules:
     scope: repo
     severity: warn
     title: Force pushes are disabled on the default branch
+    principle_domain: Governance
+    maturity_level: start
     pass: archived == true || protection.allow_force_pushes == false
     fix_hint: "Branch protection / ruleset -> block force pushes on the default branch"
 
@@ -353,6 +429,8 @@ rules:
     scope: repo
     severity: warn
     title: Deletion of the default branch is disabled
+    principle_domain: Governance
+    maturity_level: start
     pass: archived == true || protection.allow_deletions == false
     fix_hint: "Branch protection / ruleset -> block deletion of the default branch"
 
@@ -360,6 +438,8 @@ rules:
     scope: repo
     severity: info
     title: Review dismissal is restricted
+    principle_domain: Governance
+    maturity_level: mature
     pass: archived == true || protection.restrict_dismissals == true
     fix_hint: "Branch protection -> restrict who can dismiss pull request reviews"
 
@@ -367,6 +447,8 @@ rules:
     scope: repo
     severity: info
     title: Direct pushes to the default branch are restricted
+    principle_domain: Governance
+    maturity_level: mature
     pass: archived == true || protection.restrict_pushes == true
     fix_hint: "Branch protection -> restrict who can push to the default branch"
 
@@ -374,6 +456,8 @@ rules:
     scope: repo
     severity: warn
     title: Ruleset bypass is limited to automation
+    principle_domain: Governance
+    maturity_level: advance
     config:
       allowed_bypass_actor_types: [Integration]
     pass: >-
@@ -385,6 +469,8 @@ rules:
     scope: repo
     severity: warn
     title: GitHub Actions are pinned to immutable commit SHAs
+    principle_domain: Application Security
+    maturity_level: mature
     pass: archived == true || unpinned_action_ref_count == 0
     fix_hint: "In each workflow, replace mutable action tags or branches with the full 40-character commit SHA; use Dependabot to keep pinned actions updated"
 
@@ -392,6 +478,8 @@ rules:
     scope: repo
     severity: error
     title: Workflow jobs avoid implicit or broad write GITHUB_TOKEN permissions
+    principle_domain: Application Security
+    maturity_level: mature
     pass: archived == true || workflow_permission_issue_count == 0
     fix_hint: "Set workflow- or job-level permissions explicitly; grant only read/none scopes and add write permissions only to the specific job that needs them"
 
@@ -399,6 +487,8 @@ rules:
     scope: org
     severity: warn
     title: GitHub Actions are restricted to selected repositories
+    principle_domain: Governance
+    maturity_level: mature
     pass: actions_enabled_repositories != "all"
     fix_hint: "Org Settings -> Actions -> General -> Repository access: select only repositories that need Actions"
 
@@ -406,6 +496,8 @@ rules:
     scope: org
     severity: warn
     title: GitHub Actions are restricted to trusted actions
+    principle_domain: Application Security
+    maturity_level: mature
     pass: actions_allowed_actions in ["selected", "local_only"]
     fix_hint: "Org Settings -> Actions -> General -> Policies: allow GitHub/verified actions and explicitly approved actions only"
 
@@ -413,6 +505,8 @@ rules:
     scope: org
     severity: warn
     title: Default workflow token permission is read-only
+    principle_domain: Application Security
+    maturity_level: start
     pass: actions_default_workflow_permissions == "read"
     fix_hint: "Org Settings -> Actions -> General -> Workflow permissions: choose read repository contents permission"
 
@@ -420,6 +514,8 @@ rules:
     scope: org
     severity: error
     title: Workflows cannot approve pull requests
+    principle_domain: Application Security
+    maturity_level: start
     pass: actions_can_approve_pull_request_reviews == false
     fix_hint: "Org Settings -> Actions -> General -> Workflow permissions: disable allowing Actions to create and approve pull requests"
 
@@ -430,6 +526,9 @@ rules:
     assessment: true
     severity: warn
     title: GHAS licensing and repository coverage are understood
+    question: "Which orgs and repositories are covered by GHAS licenses, and which eligible repositories are intentionally left out?"
+    principle_domain: Application Security
+    maturity_level: mature
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Record GHAS licensing coverage, eligible repositories, and any repositories outside the coverage policy"
@@ -438,6 +537,8 @@ rules:
     scope: enterprise
     severity: warn
     title: Enterprise prevents repository visibility changes
+    principle_domain: Governance
+    maturity_level: start
     pass: members_can_change_repository_visibility == "DISABLED"
     fix_hint: "Enterprise Settings -> Policies -> Repository visibility change: disable member changes"
 
@@ -445,6 +546,8 @@ rules:
     scope: enterprise
     severity: warn
     title: Enterprise limits who can invite outside collaborators
+    principle_domain: Governance
+    maturity_level: start
     pass: members_can_invite_collaborators == "DISABLED"
     fix_hint: "Enterprise Settings -> Policies -> Outside collaborators: allow only enterprise or organization owners to invite"
 
@@ -452,6 +555,8 @@ rules:
     scope: enterprise
     severity: error
     title: Two-factor authentication is enforced for the enterprise
+    principle_domain: Governance
+    maturity_level: start
     pass: two_factor_required_setting == "ENABLED"
     fix_hint: "Enterprise Settings -> Authentication security: require two-factor authentication for all organizations"
 
@@ -459,6 +564,8 @@ rules:
     scope: enterprise
     severity: warn
     title: Enterprise members cannot create public repositories
+    principle_domain: Governance
+    maturity_level: start
     pass: members_can_create_public_repositories == false
     fix_hint: "Enterprise Settings -> Policies -> Repository creation: prevent members from creating public repositories"
 
@@ -466,6 +573,8 @@ rules:
     scope: enterprise
     severity: warn
     title: Enterprise prevents repository deletion and transfer by admins
+    principle_domain: Governance
+    maturity_level: start
     pass: members_can_delete_repository == "DISABLED"
     fix_hint: "Enterprise Settings -> Policies -> Repositories: disable repository deletion and transfer by repository admins"
 
@@ -473,6 +582,8 @@ rules:
     scope: enterprise
     severity: info
     title: Enterprise email notifications are restricted to verified domains
+    principle_domain: Governance
+    maturity_level: mature
     pass: notification_delivery_restriction_enabled == "ENABLED"
     fix_hint: "Enterprise Settings -> Verified and approved domains: restrict notification delivery to approved domains"
 
@@ -481,6 +592,9 @@ rules:
     assessment: true
     severity: warn
     title: Disaster recovery and backup procedures are tested
+    question: "When did you last restore GitHub data (repositories, issues, settings) from backup, and were your recovery time and point objectives met?"
+    principle_domain: Architecture
+    maturity_level: mature
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Document backup coverage, recovery objectives, and a recent successful restore exercise"
@@ -490,6 +604,9 @@ rules:
     assessment: true
     severity: info
     title: Teams use a documented work-tracking system
+    question: "Which work-tracking system do teams use, and are issues or tickets linked to the pull requests that deliver them?"
+    principle_domain: Collaboration
+    maturity_level: start
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Record the work-tracking system and how engineering work is linked to repositories and changes"
@@ -499,6 +616,9 @@ rules:
     assessment: true
     severity: info
     title: InnerSource contribution practices are established
+    question: "Can engineers outside a team contribute to its repositories through a documented process with clear owners and review expectations?"
+    principle_domain: Collaboration
+    maturity_level: mature
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Document cross-team contribution guidance, ownership, and review expectations"
@@ -508,6 +628,9 @@ rules:
     assessment: true
     severity: warn
     title: CI/CD performance is monitored and reviewed
+    question: "Which CI/CD metrics (duration, queue time, failure rate) are tracked, who owns them, and how often are they reviewed?"
+    principle_domain: Productivity
+    maturity_level: mature
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Record CI/CD performance signals, ownership, and review cadence"
@@ -517,6 +640,9 @@ rules:
     assessment: true
     severity: info
     title: Repository onboarding is automated
+    question: "When a repository is created, are templates, rulesets, security features, and team access applied automatically?"
+    principle_domain: Productivity
+    maturity_level: mature
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Document the automated repository onboarding process and its security defaults"
@@ -526,6 +652,9 @@ rules:
     assessment: true
     severity: warn
     title: Runner isolation and exposure are reviewed
+    question: "Are self-hosted runners ephemeral, isolated by trust level, network-restricted, and unreachable from untrusted (e.g. fork) workflows?"
+    principle_domain: Application Security
+    maturity_level: advance
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Record runner ownership, isolation, network boundaries, and protections against untrusted workflows"
@@ -535,6 +664,9 @@ rules:
     assessment: true
     severity: info
     title: GitHub Discussions have an intentional purpose and owner
+    question: "Are GitHub Discussions enabled? If so, what are they for and who moderates them?"
+    principle_domain: Collaboration
+    maturity_level: start
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Record whether Discussions are enabled and their purpose, or mark the assessment not applicable"
@@ -544,6 +676,9 @@ rules:
     assessment: true
     severity: info
     title: Branch naming conventions are documented and enforced
+    question: "What is the branch naming convention, and is it enforced by a ruleset or CI check?"
+    principle_domain: Collaboration
+    maturity_level: start
     applies_when: archived != true && cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Document the branch naming convention and how repository rulesets or CI enforce it"
@@ -552,6 +687,8 @@ rules:
     scope: repo
     severity: warn
     title: Repository publishes a security vulnerability reporting policy
+    principle_domain: Application Security
+    maturity_level: start
     pass: archived == true || repository_files.security_policy == true
     fix_hint: "Add SECURITY.md at the repository root, .github/, or docs/ with supported versions and a private reporting path"
 
@@ -559,6 +696,8 @@ rules:
     scope: repo
     severity: info
     title: Repository has contribution guidance
+    principle_domain: Collaboration
+    maturity_level: start
     pass: archived == true || repository_files.contributing_guide == true
     fix_hint: "Add CONTRIBUTING.md at the repository root, .github/, or docs/"
 
@@ -566,6 +705,8 @@ rules:
     scope: repo
     severity: info
     title: Repository has a pull request template
+    principle_domain: Collaboration
+    maturity_level: start
     pass: archived == true || repository_files.pull_request_template == true
     fix_hint: "Add a pull request template under .github/ or at the repository root"
 
@@ -573,6 +714,8 @@ rules:
     scope: repo
     severity: info
     title: Repository has issue templates
+    principle_domain: Collaboration
+    maturity_level: start
     pass: archived == true || repository_files.issue_templates == true
     fix_hint: "Add issue templates under .github/ISSUE_TEMPLATE/"
 
@@ -580,6 +723,8 @@ rules:
     scope: repo
     severity: info
     title: Repository has Copilot instructions
+    principle_domain: Productivity
+    maturity_level: start
     pass: archived == true || repository_files.copilot_instructions == true
     fix_hint: "Add .github/copilot-instructions.md or scoped instructions under .github/instructions/"
 
@@ -587,6 +732,8 @@ rules:
     scope: repo
     severity: warn
     title: Repository configures CodeQL or another SAST tool
+    principle_domain: Application Security
+    maturity_level: mature
     pass: archived == true || repository_files.sast_configuration == true || codeql_action_count > 0
     fix_hint: "Configure CodeQL or an approved SAST tool such as Semgrep or SonarQube"
 
@@ -594,6 +741,8 @@ rules:
     scope: repo
     severity: warn
     title: Dependency review runs in GitHub Actions
+    principle_domain: Application Security
+    maturity_level: mature
     pass: archived == true || dependency_review_action_count > 0
     fix_hint: "Add actions/dependency-review-action to a required pull request workflow"
 
@@ -601,6 +750,8 @@ rules:
     scope: repo
     severity: warn
     title: CI workflows run on pull requests
+    principle_domain: Productivity
+    maturity_level: start
     pass: archived == true || workflow_pr_trigger_count > 0
     fix_hint: "Add a pull_request trigger to the repository's CI/test workflow"
 
@@ -608,6 +759,8 @@ rules:
     scope: repo
     severity: info
     title: Repository uses reusable workflows
+    principle_domain: Productivity
+    maturity_level: mature
     pass: archived == true || reusable_workflow_count > 0
     fix_hint: "Consider centralizing repeated CI logic in reviewed reusable workflows"
 
@@ -615,6 +768,8 @@ rules:
     scope: repo
     severity: info
     title: Workflow dependencies are cached
+    principle_domain: Productivity
+    maturity_level: start
     pass: archived == true || cache_action_count > 0
     fix_hint: "Add a dependency cache such as actions/cache or a language setup action's cache option"
 
@@ -622,6 +777,8 @@ rules:
     scope: repo
     severity: info
     title: Workflows use concurrency controls
+    principle_domain: Productivity
+    maturity_level: mature
     pass: archived == true || concurrency_workflow_count > 0
     fix_hint: "Add a concurrency group with cancel-in-progress where overlapping runs are safe"
 
@@ -629,6 +786,8 @@ rules:
     scope: repo
     severity: info
     title: Workflow triggers use branch or path filters
+    principle_domain: Productivity
+    maturity_level: mature
     pass: archived == true || narrow_trigger_count > 0
     fix_hint: "Narrow workflow triggers with paths/branches filters where appropriate"
 
@@ -636,6 +795,8 @@ rules:
     scope: repo
     severity: info
     title: Workflows use matrix strategies where useful
+    principle_domain: Productivity
+    maturity_level: mature
     pass: archived == true || matrix_job_count > 0
     fix_hint: "Use a strategy matrix to test supported language/runtime versions in parallel where applicable"
 
@@ -643,6 +804,8 @@ rules:
     scope: repo
     severity: info
     title: Releases are automated
+    principle_domain: Productivity
+    maturity_level: advance
     pass: archived == true || release_automation_count > 0
     fix_hint: "Consider release-please, semantic-release, Changesets, or another reviewed release automation"
 
@@ -650,6 +813,8 @@ rules:
     scope: repo
     severity: info
     title: Stale issues and pull requests are managed automatically
+    principle_domain: Collaboration
+    maturity_level: mature
     pass: archived == true || stale_issue_automation_count > 0
     fix_hint: "Configure an issue lifecycle policy such as actions/stale if it fits the repository's support model"
 
@@ -657,6 +822,8 @@ rules:
     scope: repo
     severity: info
     title: Repository has recent development activity
+    principle_domain: Governance
+    maturity_level: mature
     config:
       max_days_since_push: 90
     pass: archived == true || last_pushed_days <= cfg.max_days_since_push
@@ -665,8 +832,10 @@ rules:
   - id: REPO-47
     scope: repo
     severity: warn
-    enabled: false
+    enabled: true
     title: Repository Actions secrets are rotated within policy
+    principle_domain: Application Security
+    maturity_level: advance
     config:
       max_secret_age_days: 365
     pass: archived == true || oldest_actions_secret_age_days <= cfg.max_secret_age_days
@@ -676,6 +845,8 @@ rules:
     scope: repo
     severity: warn
     title: Individual repository admin access is limited
+    principle_domain: Governance
+    maturity_level: mature
     config:
       max_admins: 3
       max_admin_ratio: 0.05
@@ -689,8 +860,10 @@ rules:
   - id: REPO-49
     scope: repo
     severity: warn
-    enabled: false
+    enabled: true
     title: Production environments require reviewers
+    principle_domain: Application Security
+    maturity_level: mature
     config:
       production_environment_names: [production, prod]
     pass: >-
@@ -704,6 +877,9 @@ rules:
     assessment: true
     severity: warn
     title: Cloud deployments use OIDC instead of long-lived credentials
+    question: "Do deployment workflows authenticate to cloud providers via OIDC, and which long-lived cloud credentials remain in secrets?"
+    principle_domain: Application Security
+    maturity_level: advance
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Document cloud identity federation coverage and remove long-lived deployment credentials where OIDC is supported"
@@ -713,6 +889,9 @@ rules:
     assessment: true
     severity: warn
     title: Deployment rollback and recovery procedures are tested
+    question: "How do you roll back a bad deployment of this repository, and when was that last exercised successfully?"
+    principle_domain: Architecture
+    maturity_level: advance
     applies_when: archived != true && cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Document the rollback/recovery mechanism and evidence from a recent exercise"
@@ -721,6 +900,8 @@ rules:
     scope: repo
     severity: info
     title: Repository accepts private vulnerability reports
+    principle_domain: Application Security
+    maturity_level: start
     applies_when: archived != true && visibility == "public"
     pass: private_vulnerability_reporting == true
     fix_hint: "Repo Settings -> Security -> enable private vulnerability reporting"
@@ -729,6 +910,8 @@ rules:
     scope: repo
     severity: warn
     title: Private/internal repository forking is disabled
+    principle_domain: Governance
+    maturity_level: start
     applies_when: archived != true && visibility in ["private", "internal"]
     pass: allow_forking == false
     fix_hint: "Repo Settings -> General -> Features: disable forking for private/internal repositories unless explicitly approved"
@@ -736,8 +919,10 @@ rules:
   - id: ORG-22
     scope: org
     severity: warn
-    enabled: false
+    enabled: true
     title: Organization Actions secrets are rotated within policy
+    principle_domain: Application Security
+    maturity_level: advance
     config:
       max_secret_age_days: 365
     pass: oldest_actions_secret_age_days <= cfg.max_secret_age_days
@@ -747,6 +932,8 @@ rules:
     scope: org
     severity: error
     title: Runner groups cannot run workflows from public repositories
+    principle_domain: Application Security
+    maturity_level: mature
     pass: runner_groups.all(g, g.allows_public_repositories == false)
     fix_hint: "Org Settings -> Actions -> Runner groups: disable public repository access for every group"
 
@@ -754,6 +941,8 @@ rules:
     scope: org
     severity: warn
     title: Runner groups are limited to selected repositories
+    principle_domain: Governance
+    maturity_level: mature
     pass: runner_groups.all(g, g.visibility == "selected")
     fix_hint: "Org Settings -> Actions -> Runner groups: grant access only to repositories that require each group"
 
@@ -761,6 +950,8 @@ rules:
     scope: org
     severity: warn
     title: Members cannot create public repositories
+    principle_domain: Governance
+    maturity_level: start
     pass: members_can_create_public_repositories == false
     fix_hint: "Org Settings -> Member privileges -> Repository creation: disable public repository creation for members"
 
@@ -768,6 +959,8 @@ rules:
     scope: org
     severity: warn
     title: New repositories get GitHub Advanced Security by default
+    principle_domain: Application Security
+    maturity_level: mature
     pass: advanced_security_enabled_for_new_repositories == true
     fix_hint: "Org Settings -> Code security -> automatically enable Advanced Security for new repositories"
 
@@ -776,6 +969,9 @@ rules:
     assessment: true
     severity: warn
     title: Stale members and administrators are reviewed and removed
+    question: "How often are inactive members and owners reviewed, and when was access last removed or downgraded as a result?"
+    principle_domain: Governance
+    maturity_level: advance
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Review inactive member/admin access on a regular cadence and remove or downgrade accounts no longer needed"
@@ -785,6 +981,9 @@ rules:
     assessment: true
     severity: warn
     title: Organization SSO is configured and enforced
+    question: "Is SAML SSO configured and enforced for this organization (directly or via the enterprise), and is SCIM or team sync in place?"
+    principle_domain: Governance
+    maturity_level: mature
     applies_when: cfg.assessment.status != "not_applicable"
     pass: cfg.assessment.status == "compliant"
     fix_hint: "Record the organization SAML/SSO configuration and enforcement status"
@@ -793,6 +992,8 @@ rules:
     scope: enterprise
     severity: warn
     title: New repositories get GitHub Advanced Security by default
+    principle_domain: Application Security
+    maturity_level: mature
     pass: advanced_security_enabled_for_new_repositories == true
     fix_hint: "Enterprise Settings -> Code security -> automatically enable Advanced Security for new repositories"
 
@@ -800,6 +1001,8 @@ rules:
     scope: enterprise
     severity: warn
     title: New repositories get secret scanning by default
+    principle_domain: Application Security
+    maturity_level: mature
     pass: secret_scanning_enabled_for_new_repositories == true
     fix_hint: "Enterprise Settings -> Code security -> automatically enable secret scanning for new repositories"
 
@@ -807,5 +1010,7 @@ rules:
     scope: enterprise
     severity: warn
     title: New repositories get secret scanning push protection by default
+    principle_domain: Application Security
+    maturity_level: mature
     pass: secret_scanning_push_protection_enabled_for_new_repositories == true
     fix_hint: "Enterprise Settings -> Code security -> automatically enable secret scanning push protection for new repositories"

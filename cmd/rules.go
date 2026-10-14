@@ -16,7 +16,7 @@ var rulesCmd = &cobra.Command{
 
 var rulesListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all rules (id, scope, severity, title)",
+	Short: "List all rules with scope, domain, maturity, and severity",
 	RunE:  runRulesList,
 }
 
@@ -45,7 +45,8 @@ func runRulesList(cmd *cobra.Command, _ []string) error {
 		if r.Enabled != nil && !*r.Enabled {
 			state = " [off by default]"
 		}
-		_, _ = fmt.Fprintf(out, "%-8s %-10s %-7s %s%s\n", r.ID, r.Scope, r.Severity, r.Title, state)
+		_, _ = fmt.Fprintf(out, "%-8s %-10s %-21s %-12s %-7s %s%s\n",
+			r.ID, r.Scope, r.PrincipleDomain, r.MaturityLevel, r.Severity, r.Title, state)
 	}
 	return nil
 }
@@ -68,6 +69,12 @@ func explainRule(cmd *cobra.Command, r rules.Rule) error {
 	_, _ = fmt.Fprintf(out, "%s — %s\n", r.ID, r.Title)
 	_, _ = fmt.Fprintf(out, "  scope:    %s\n", r.Scope)
 	_, _ = fmt.Fprintf(out, "  severity: %s\n", r.Severity)
+	if r.PrincipleDomain != "" {
+		_, _ = fmt.Fprintf(out, "  domain:   %s\n", r.PrincipleDomain)
+	}
+	if r.MaturityLevel != "" {
+		_, _ = fmt.Fprintf(out, "  maturity: %s\n", r.MaturityLevel)
+	}
 	if r.Applies != "" {
 		_, _ = fmt.Fprintf(out, "  applies:  %s\n", r.Applies)
 	}

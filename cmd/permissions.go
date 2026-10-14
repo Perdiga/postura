@@ -75,7 +75,7 @@ func runPermissionsCheck(cmd *cobra.Command, args []string) error {
 	}
 	for _, spec := range specs {
 		if scopes.org {
-			facts, err := collect.Org(ctx, client, spec.name)
+			facts, err := collect.Org(ctx, client, spec.name, cmd.ErrOrStderr())
 			if err != nil {
 				checks = append(checks, permissionCheck{
 					scope: "org", target: spec.name, capability: "organization collection",

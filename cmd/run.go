@@ -72,7 +72,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 	if scopes.org {
 		for _, s := range specs {
-			of, err := collect.Org(ctx, c, s.name)
+			of, err := collect.Org(ctx, c, s.name, cmd.ErrOrStderr())
 			if err != nil {
 				return fmt.Errorf("collect org %s: %w", s.name, err)
 			}

@@ -2,6 +2,8 @@ package collect
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -39,7 +41,7 @@ func strOrNull(s string) any {
 }
 
 // Org collects org-level access/membership facts as one normalized object.
-func Org(ctx context.Context, c *github.Client, org string) (map[string]any, error) {
+func Org(ctx context.Context, c *github.Client, org string, warnings io.Writer) (map[string]any, error) {
 	f := map[string]any{"org": org}
 
 	o, _, err := c.Organizations.Get(ctx, org)
@@ -83,9 +85,11 @@ func Org(ctx context.Context, c *github.Client, org string) (map[string]any, err
 	}
 	f["teams"] = teams
 
-	f["invitations"], err = pendingInvitations(ctx, c, org)
+	invitations, err := pendingInvitations(ctx, c, org)
 	if err != nil {
-		return nil, err
+		_, _ = fmt.Fprintf(warnings, "warning: collect org %s: pending invitations unavailable; continuing without invitation data: %v\n", org, err)
+	} else {
+		f["invitations"] = invitations
 	}
 
 	if roles := organizationRoles(ctx, c, org); roles != nil {

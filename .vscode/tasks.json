@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Windows amd64",
+			"type": "shell",
+			"command": "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o dist/postura-windows-amd64.exe .",
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

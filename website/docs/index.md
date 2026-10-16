@@ -26,7 +26,7 @@ GitHub REST + GraphQL -> collect facts -> evaluate CEL rules -> Markdown / JSON 
                           read-only       deterministic          exit-code gate
 ```
 
-`postura run` performs all three stages. `collect` writes a JSON snapshot, and `eval` applies rules to that snapshot without network access. postura ships no default ruleset: begin with the [example baseline](https://github.com/jackchuka/postura/blob/main/examples/rules.yaml) and make the policy yours.
+`postura run` performs all three stages. `collect` writes a JSON snapshot, and `eval` applies rules to that snapshot without network access. postura ships no default ruleset: begin with the [example baseline](https://github.com/Perdiga/postura/blob/main/examples/rules.yaml) and make the policy yours.
 
 ## Project links
 
@@ -35,5 +35,5 @@ GitHub REST + GraphQL -> collect facts -> evaluate CEL rules -> Markdown / JSON 
 - [Rules and CEL](./guides/rules.md)
 - [Policy configuration and assessments](./guides/configuration.md)
 - [Fact fields](./reference/facts.md)
-- [Example ruleset](https://github.com/jackchuka/postura/blob/main/examples/rules.yaml)
-- [Example config](https://github.com/jackchuka/postura/blob/main/examples/config.yaml)
+- [Example ruleset](https://github.com/Perdiga/postura/blob/main/examples/rules.yaml)
+- [Example config](https://github.com/Perdiga/postura/blob/main/examples/config.yaml)

@@ -7,6 +7,42 @@ import (
 
 func boolPtr(b bool) *bool { return &b }
 
+func TestLoadConfigMaturity(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		data    string
+		want    MaturityPolicy
+		wantErr bool
+	}{
+		{name: "default"},
+		{name: "allowance", data: "maturity:\n  max_warnings_per_tier: 2\n", want: MaturityPolicy{MaxWarningsPerTier: 2}},
+		{name: "ignore", data: "maturity:\n  ignore_warnings: true\n", want: MaturityPolicy{IgnoreWarnings: true}},
+		{name: "negative", data: "maturity:\n  max_warnings_per_tier: -1\n", wantErr: true},
+		{name: "fractional", data: "maturity:\n  max_warnings_per_tier: 1.5\n", wantErr: true},
+		{name: "invalid boolean", data: "maturity:\n  ignore_warnings: invalid\n", wantErr: true},
+		{name: "unknown setting", data: "maturity:\n  max_warning_per_tier: 2\n", wantErr: true},
+		{name: "not mapping", data: "maturity: true\n", wantErr: true},
+		{name: "duplicate setting", data: "maturity:\n  ignore_warnings: false\n  ignore_warnings: true\n", wantErr: true},
+		{name: "conflicting", data: "maturity:\n  max_warnings_per_tier: 2\n  ignore_warnings: true\n", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := LoadConfig([]byte(tt.data))
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected invalid maturity config error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.Maturity != tt.want {
+				t.Fatalf("maturity = %+v, want %+v", cfg.Maturity, tt.want)
+			}
+		})
+	}
+}
+
 func TestResolvePrecedence(t *testing.T) {
 	r := Rule{ID: "ORG-2", Severity: "warn", Config: map[string]any{"max_admins": 5, "max_admin_ratio": 0.25}}
 	c := &Config{

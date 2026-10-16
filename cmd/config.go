@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/go-github/v84/github"
-	"github.com/jackchuka/postura/internal/collect"
-	"github.com/jackchuka/postura/internal/rules"
+	"github.com/Perdiga/postura/internal/collect"
+	"github.com/Perdiga/postura/internal/rules"
 	"github.com/spf13/cobra"
 )
 

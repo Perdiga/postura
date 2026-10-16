@@ -1,4 +1,4 @@
-module github.com/jackchuka/postura
+module github.com/Perdiga/postura
 
 go 1.26.5
 

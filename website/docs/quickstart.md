@@ -10,17 +10,17 @@ sidebar_position: 1
 
 - Go 1.26.5 or later to install from source with `go install`.
 - A GitHub token in `GITHUB_TOKEN` or `GH_TOKEN`, or an authenticated GitHub CLI (`gh auth token` is used as a fallback).
-- A ruleset YAML file. postura intentionally ships without built-in policy; the repository's [`examples/rules.yaml`](https://github.com/jackchuka/postura/blob/main/examples/rules.yaml) is a starting baseline.
+- A ruleset YAML file. postura intentionally ships without built-in policy; the repository's [`examples/rules.yaml`](https://github.com/Perdiga/postura/blob/main/examples/rules.yaml) is a starting baseline.
 
 ## Install
 
 Install the latest version:
 
 ```bash
-go install github.com/jackchuka/postura@latest
+go install github.com/Perdiga/postura@latest
 ```
 
-Or download a prebuilt Linux, macOS, or Windows binary for amd64 or arm64 from [GitHub Releases](https://github.com/jackchuka/postura/releases).
+Or download a prebuilt Linux, macOS, or Windows binary for amd64 or arm64 from [GitHub Releases](https://github.com/Perdiga/postura/releases).
 
 ## Authenticate
 

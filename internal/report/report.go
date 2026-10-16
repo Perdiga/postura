@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackchuka/postura/internal/engine"
+	"github.com/Perdiga/postura/internal/engine"
 )
 
 var sevRank = map[string]int{"error": 0, "warn": 1, "info": 2}

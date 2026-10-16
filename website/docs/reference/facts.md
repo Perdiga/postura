@@ -5,7 +5,7 @@ description: CEL facts collected at enterprise, organization, and repository sco
 
 # Fact fields
 
-The collector exposes these names as top-level CEL variables. The authoritative schema is [`internal/collect/schema.go`](https://github.com/jackchuka/postura/blob/main/internal/collect/schema.go). A field the token cannot read is omitted, so a rule that needs it reports unknown. Some facts are only available when a GitHub feature is enabled or eligible.
+The collector exposes these names as top-level CEL variables. The authoritative schema is [`internal/collect/schema.go`](https://github.com/Perdiga/postura/blob/main/internal/collect/schema.go). A field the token cannot read is omitted, so a rule that needs it reports unknown. Some facts are only available when a GitHub feature is enabled or eligible.
 
 ## Enterprise
 

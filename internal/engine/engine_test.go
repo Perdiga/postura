@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackchuka/postura/internal/rules"
+	"github.com/Perdiga/postura/internal/rules"
 )
 
 func mustEngine(t *testing.T, scope rules.Scope, rs []rules.Rule, vars []string) *Engine {

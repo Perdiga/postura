@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/jackchuka/postura/internal/collect"
-	"github.com/jackchuka/postura/internal/engine"
-	"github.com/jackchuka/postura/internal/rules"
+	"github.com/Perdiga/postura/internal/collect"
+	"github.com/Perdiga/postura/internal/engine"
+	"github.com/Perdiga/postura/internal/rules"
 )
 
 // Facts is the collected-facts document: the unit passed between `collect` and

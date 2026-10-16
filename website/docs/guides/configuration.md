@@ -5,7 +5,21 @@ description: Configure target-specific policy and human-reviewed evidence.
 
 # Policy configuration and assessments
 
-Pass a policy config with `--config`. It has two independent parts: target-specific rule overrides and optional human assessments. A complete example lives in [`examples/config.yaml`](https://github.com/jackchuka/postura/blob/main/examples/config.yaml).
+Pass a policy config with `--config`. It supports target-specific rule overrides, optional human assessments, and an HTML maturity policy. A complete example lives in [`examples/config.yaml`](https://github.com/Perdiga/postura/blob/main/examples/config.yaml).
+
+## Maturity warning allowance
+
+```yaml
+maturity:
+  max_warnings_per_tier: 2
+  ignore_warnings: false
+```
+
+For each enterprise, organization, or repository, this allows up to two failing or unknown `warn` findings in each maturity tier without blocking progression. The count resets for each target and tier. Failing or unknown `error` findings always block; `info` findings never block.
+
+The default is zero warnings allowed. To ignore all warning blockers, use `ignore_warnings: true` with `max_warnings_per_tier: 0`. Negative allowances and combining ignore mode with a non-zero allowance are rejected.
+
+This changes HTML maturity levels only, not findings, pass rates, completeness, or `--fail-on`/`--fail-on-unknown` exit gates. Tolerated warnings remain visible in the improvement roadmap. As before, Advance is the top level even when advance-tier checks have gaps.
 
 ## Target overrides
 

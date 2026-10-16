@@ -5,7 +5,7 @@ description: Create and tune posture rulesets.
 
 # Rules and CEL
 
-A ruleset is YAML data supplied with `--rules`. postura does not embed a baseline. The full, runnable baseline is maintained in [`examples/rules.yaml`](https://github.com/jackchuka/postura/blob/main/examples/rules.yaml).
+A ruleset is YAML data supplied with `--rules`. postura does not embed a baseline. The full, runnable baseline is maintained in [`examples/rules.yaml`](https://github.com/Perdiga/postura/blob/main/examples/rules.yaml).
 
 ## Rule shape
 

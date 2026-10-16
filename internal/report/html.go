@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jackchuka/postura/internal/engine"
-	"github.com/jackchuka/postura/internal/rules"
+	"github.com/Perdiga/postura/internal/engine"
+	"github.com/Perdiga/postura/internal/rules"
 )
 
 //go:embed html.tmpl
@@ -32,8 +32,7 @@ var pillars = []pillarInfo{
 
 const unclassified = "Unclassified"
 
-// tiers are the maturity tiers in ascending order; a target reaches a tier only
-// when it and every tier below it have no fail or unknown checks.
+// tiers are the maturity tiers in ascending order.
 var tiers = []string{rules.MaturityStart, rules.MaturityMature, rules.MaturityAdvance}
 
 var levelNames = []string{"Start", "Mature", "Advance"}
@@ -116,12 +115,16 @@ type htmlReport struct {
 	Scopes               []htmlScope
 	Roadmap              []htmlTier
 	LevelNames           []string
+	Maturity             rules.MaturityPolicy
 }
 
 // HTML renders a self-contained maturity report aligned to the GitHub
 // Well-Architected pillars, aimed at enterprise/org owners: an executive
 // summary, pillar scores per scope, per-target maturity, and a tiered roadmap.
-func HTML(fs []engine.Finding, scopeDesc string, generated time.Time) ([]byte, error) {
+func HTML(fs []engine.Finding, scopeDesc string, generated time.Time, maturity rules.MaturityPolicy) ([]byte, error) {
+	if err := maturity.Validate(); err != nil {
+		return nil, err
+	}
 	tmpl, err := template.New("report").Funcs(template.FuncMap{
 		"levelClass": func(l int) string { return fmt.Sprintf("lvl%d", l) },
 		"add":        func(a, b int) int { return a + b },
@@ -145,7 +148,7 @@ func HTML(fs []engine.Finding, scopeDesc string, generated time.Time) ([]byte, e
 		return nil, err
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, buildHTMLReport(fs, scopeDesc, generated)); err != nil {
+	if err := tmpl.Execute(&buf, buildHTMLReport(fs, scopeDesc, generated, maturity)); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -158,12 +161,13 @@ func pillarOf(f engine.Finding) string {
 	return f.PrincipleDomain
 }
 
-func buildHTMLReport(fs []engine.Finding, scopeDesc string, generated time.Time) htmlReport {
+func buildHTMLReport(fs []engine.Finding, scopeDesc string, generated time.Time, maturity rules.MaturityPolicy) htmlReport {
 	r := htmlReport{
 		Generated:    generated.UTC().Format("2006-01-02 15:04 MST"),
 		ScopeDesc:    scopeDesc,
 		FrameworkURL: wellArchitectedURL,
 		LevelNames:   levelNames,
+		Maturity:     maturity,
 	}
 
 	pillarList := append([]pillarInfo(nil), pillars...)
@@ -227,7 +231,7 @@ func buildHTMLReport(fs []engine.Finding, scopeDesc string, generated time.Time)
 		}
 		for i := range sc.Targets {
 			t := &sc.Targets[i]
-			t.Level = maturityLevel(t.Findings)
+			t.Level = maturityLevel(t.Findings, maturity)
 			sort.SliceStable(t.Findings, func(a, b int) bool { return findingLess(t.Findings[a], t.Findings[b]) })
 			sc.Distribution[t.Level]++
 		}
@@ -247,15 +251,21 @@ func buildHTMLReport(fs []engine.Finding, scopeDesc string, generated time.Time)
 	return r
 }
 
-// maturityLevel returns the tier (index into levelNames) of the lowest tier with a
-// fail/unknown error- or warn-severity check; a target with no such gaps below
-// advance is at Advance. Info checks and untagged checks don't affect the level.
-func maturityLevel(fs []engine.Finding) int {
+// maturityLevel returns the lowest blocked tier. Warning allowances are counted
+// separately per target and tier; failed and unknown errors always block.
+func maturityLevel(fs []engine.Finding, policy rules.MaturityPolicy) int {
 	for i, tier := range tiers[:len(tiers)-1] {
+		warnings := 0
 		for _, f := range fs {
 			if f.MaturityLevel == tier && f.Severity != "info" && f.Status != engine.StatusPass {
-				return i
+				if f.Severity != "warn" {
+					return i
+				}
+				warnings++
 			}
+		}
+		if !policy.IgnoreWarnings && warnings > policy.MaxWarningsPerTier {
+			return i
 		}
 	}
 	return len(tiers) - 1

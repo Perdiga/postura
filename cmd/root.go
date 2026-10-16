@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jackchuka/postura/internal/version"
+	"github.com/Perdiga/postura/internal/version"
 	"github.com/spf13/cobra"
 )
 

@@ -1,6 +1,37 @@
 package cmd
 
-import "testing"
+import (
+	"bytes"
+	"strings"
+	"testing"
+
+	"github.com/Perdiga/postura/internal/engine"
+	"github.com/Perdiga/postura/internal/rules"
+)
+
+func TestWriteReportMaturityPolicy(t *testing.T) {
+	findings := []engine.Finding{
+		{ID: "R1", Scope: "repo", Target: "acme/a", Severity: "warn", MaturityLevel: "start", Status: engine.StatusFail},
+	}
+	var html bytes.Buffer
+	if err := writeReport(&html, findings, "html", "1 repo", rules.MaturityPolicy{IgnoreWarnings: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(html.String(), "Warning checks do not block maturity.") ||
+		!strings.Contains(html.String(), `<span class="badge lvl2">Advance</span>`) {
+		t.Fatal("HTML report did not apply maturity policy")
+	}
+	var strict, relaxed bytes.Buffer
+	if err := writeReport(&strict, findings, "json", "1 repo", rules.MaturityPolicy{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeReport(&relaxed, findings, "json", "1 repo", rules.MaturityPolicy{IgnoreWarnings: true}); err != nil {
+		t.Fatal(err)
+	}
+	if strict.String() != relaxed.String() {
+		t.Fatal("maturity policy must not change JSON findings")
+	}
+}
 
 func TestDecodeText(t *testing.T) {
 	want := `{"a":"é"}`

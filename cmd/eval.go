@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jackchuka/postura/internal/report"
+	"github.com/Perdiga/postura/internal/report"
 	"github.com/spf13/cobra"
 )
 
@@ -64,7 +64,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := writeReport(cmd.OutOrStdout(), findings, evalFormat, scopeDesc(f)); err != nil {
+	if err := writeReport(cmd.OutOrStdout(), findings, evalFormat, scopeDesc(f), cfg.Maturity); err != nil {
 		return err
 	}
 	if report.ShouldFail(findings, evalFailOn, evalFailOnUnknown) {

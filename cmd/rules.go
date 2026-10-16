@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/jackchuka/postura/internal/rules"
+	"github.com/Perdiga/postura/internal/rules"
 	"github.com/spf13/cobra"
 )
 

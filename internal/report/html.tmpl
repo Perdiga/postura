@@ -60,7 +60,7 @@ code{font-size:12px;background:var(--bg);padding:1px 4px;border-radius:4px}
 <div class="muted">Results completeness</div>
 <div class="big {{if .Overall.Unknown}}unknown{{else}}pass{{end}}">{{.Overall.KnownPct}}%</div>
 {{- if .Overall.Unknown}}
-<div class="muted">{{.Overall.Unknown}} of {{.Overall.Total}} checks could not be read, so levels may be understated. Run <code>postura permissions check</code> or supply assessments in <code>--config</code>.</div>
+<div class="muted">{{.Overall.Unknown}} of {{.Overall.Total}} checks could not be read, so levels may be understated.</div>
 {{- else}}
 <div class="muted">Every check was scored.</div>
 {{- end}}
@@ -86,11 +86,11 @@ code{font-size:12px;background:var(--bg);padding:1px 4px;border-radius:4px}
 
 <section>
 <h2>Maturity model</h2>
-<p class="muted">Each check is tagged with a Well-Architected pillar and a maturity tier. A target's level is the lowest tier where it still has a failing or unknown <code>error</code> or <code>warn</code> check. <code>info</code> checks count toward scores and the roadmap but never hold a level back. Unknown results (facts postura could not read) never count as passing.</p>
+<p class="muted">Each check is tagged with a Well-Architected pillar and a maturity tier. A target's level is the lowest blocked tier. Failing or unknown <code>error</code> checks always block progression. {{if .Maturity.IgnoreWarnings}}Warning checks do not block maturity.{{else}}Up to {{.Maturity.MaxWarningsPerTier}} failing or unknown <code>warn</code> checks are allowed per target in each tier; exceeding that allowance blocks progression.{{end}} <code>info</code> checks never block maturity. All findings still count toward scores and appear in the roadmap; tolerated warnings and unknown results never count as passing.</p>
 <div class="legend">
-<div><span class="badge lvl0">Start</span> Missing one or more <code>start</code> checks.</div>
-<div><span class="badge lvl1">Mature</span> All <code>start</code> checks pass; missing one or more <code>mature</code> checks.</div>
-<div><span class="badge lvl2">Advance</span> All <code>start</code> and <code>mature</code> checks pass; working through <code>advance</code> checks.</div>
+<div><span class="badge lvl0">Start</span> Blocked by <code>start</code> checks under the configured maturity policy.</div>
+<div><span class="badge lvl1">Mature</span> No <code>start</code> blockers; blocked by <code>mature</code> checks.</div>
+<div><span class="badge lvl2">Advance</span> No <code>start</code> or <code>mature</code> blockers; working through <code>advance</code> checks.</div>
 </div>
 </section>
 
@@ -115,6 +115,7 @@ code{font-size:12px;background:var(--bg);padding:1px 4px;border-radius:4px}
 
 <section>
 <h2>Improvement roadmap</h2>
+<p class="muted">Remaining gaps include informational checks and warnings within the configured allowance, which do not necessarily block the target's current maturity level.</p>
 {{- if not .Roadmap}}
 <p class="pass">Every check passes. Re-run regularly and review the <a href="{{.FrameworkURL}}">Well-Architected</a> recommendations for practices beyond automated checks.</p>
 {{- end}}

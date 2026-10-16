@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jackchuka/postura/internal/collect"
+	"github.com/Perdiga/postura/internal/collect"
 	"github.com/spf13/cobra"
 )
 

@@ -7,14 +7,17 @@
 </p>
 
 <p>
-  <a href="https://github.com/jackchuka/postura/actions/workflows/test.yml"><img src="https://github.com/jackchuka/postura/actions/workflows/test.yml/badge.svg" alt="Test"></a>
-  <a href="https://github.com/jackchuka/postura/releases"><img src="https://img.shields.io/github/v/release/jackchuka/postura?sort=semver" alt="Release"></a>
+  <a href="https://github.com/Perdiga/postura/actions/workflows/test.yml"><img src="https://github.com/Perdiga/postura/actions/workflows/test.yml/badge.svg" alt="Test"></a>
+  <a href="https://github.com/Perdiga/postura/releases"><img src="https://img.shields.io/github/v/release/Perdiga/postura?sort=semver" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
 </div>
 
 ---
+
+This is an independently maintained fork of [jackchuka/postura](https://github.com/jackchuka/postura).
+Installations, releases, and documentation links below refer to [Perdiga/postura](https://github.com/Perdiga/postura).
 
 **postura** audits a GitHub organization's **security posture** — branch protection,
 2FA enforcement, secret scanning, outside collaborators, org-role grants, and more —
@@ -97,10 +100,10 @@ freshness are configurable per target.
 ## Install
 
 ```bash
-go install github.com/jackchuka/postura@latest
+go install github.com/Perdiga/postura@latest
 ```
 
-Or grab a prebuilt binary from [Releases](https://github.com/jackchuka/postura/releases)
+Or grab a prebuilt binary from [Releases](https://github.com/Perdiga/postura/releases)
 (Linux / macOS / Windows, amd64 + arm64).
 
 ### Run in a Dev Container
@@ -178,6 +181,22 @@ Shared by `run` and `collect` (the commands that talk to GitHub):
 flags above. SARIF output is uploadable to GitHub code scanning and usable as audit evidence.
 HTML output is a self-contained maturity report for enterprise/org owners, scored against the
 [GitHub Well-Architected](https://learn.github.com/well-architected) pillars.
+
+HTML maturity can tolerate warnings without changing their severity or finding
+status. Add this top-level block to the file passed with `--config`:
+
+```yaml
+maturity:
+  max_warnings_per_tier: 2
+  ignore_warnings: false
+```
+
+This allows up to two failing/unknown warnings **per target, per maturity tier**.
+Failing/unknown errors always block progression; info never blocks. The default
+allowance is zero (existing behavior). To ignore all warning blockers, set
+`ignore_warnings: true` and leave `max_warnings_per_tier` at zero. Scores, findings,
+and `--fail-on` exit gates are unchanged. The policy applies to enterprise,
+organization, and repository maturity in the report.
 
 ### Examples
 

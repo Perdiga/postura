@@ -33,18 +33,22 @@ The HTML report scores posture against the [GitHub Well-Architected](https://lea
 
 - **Executive summary** — overall pass rate, the enterprise's maturity level, and the distribution of orgs and repositories across levels.
 - **Pillar scorecard** — pass rate per pillar for each scope. Pillars without automated checks link to the framework for self-assessment.
-- **Improvement roadmap** — failing and unknown checks grouped by the maturity tier they block, ordered by severity and number of affected targets.
+- **Improvement roadmap** — failing and unknown checks grouped by maturity tier, including tolerated warnings and informational gaps, ordered by severity and number of affected targets.
 - **Per-target tables** — each enterprise, org, and repository with its maturity level, per-pillar scores, and expandable failing checks.
 
-Maturity levels follow GitHub's start → mature → advance progression. A target's level is the lowest tier where it still has a failing or unknown check:
+Maturity levels follow GitHub's start → mature → advance progression. A target's level is the lowest blocked tier under the configured maturity policy:
 
 | Level | Meaning |
 | --- | --- |
-| **Start** | Missing one or more `start` checks. |
-| **Mature** | All `start` checks pass; missing one or more `mature` checks. |
-| **Advance** | All `start` and `mature` checks pass; `advance` checks are the remaining roadmap. |
+| **Start** | Blocked by `start` checks. |
+| **Mature** | No `start` blockers; blocked by `mature` checks. |
+| **Advance** | No `start` or `mature` blockers; `advance` checks are the remaining roadmap. |
 
-Only `error` and `warn` checks gate a level (after any per-target severity override in `--config`); `info` checks count toward scores and appear in the roadmap but never hold a target back. The report also shows check counts per pillar and target, and a results-completeness figure: the share of checks postura could read. A low figure means unknown results may be understating maturity. Unknown results block a level, and rules without `maturity_level` do not affect it.
+Failing or unknown `error` checks always gate a level (after any per-target severity override in `--config`). By default, failing or unknown `warn` checks also gate a level; `info` checks never do. Rules without `maturity_level` do not affect it.
+
+Use the top-level `maturity` block in `--config` to allow up to `max_warnings_per_tier` failing/unknown warnings per target in each tier, or set `ignore_warnings: true` with an allowance of zero to ignore warning blockers entirely. See [maturity warning allowance](../guides/configuration.md#maturity-warning-allowance).
+
+All findings still count toward scores and appear in the roadmap. Tolerating a warning does not make it a pass. The results-completeness figure remains the share of checks postura could read; unknown results remain unknown. Maturity policy does not change CLI exit gates.
 
 ## Exit behavior
 

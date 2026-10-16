@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jackchuka/postura/internal/collect"
-	"github.com/jackchuka/postura/internal/report"
+	"github.com/Perdiga/postura/internal/collect"
+	"github.com/Perdiga/postura/internal/report"
 	"github.com/spf13/cobra"
 )
 
@@ -93,7 +93,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := writeReport(cmd.OutOrStdout(), findings, runFormat, scopeDesc(facts)); err != nil {
+	if err := writeReport(cmd.OutOrStdout(), findings, runFormat, scopeDesc(facts), cfg.Maturity); err != nil {
 		return err
 	}
 	if report.ShouldFail(findings, runFailOn, runFailOnUnknown) {

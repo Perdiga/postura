@@ -4,9 +4,9 @@ const config: Config = {
     title: 'postura',
     tagline: 'A security baseline you own.',
     favicon: 'img/favicon.svg',
-    url: 'https://jackchuka.github.io',
+    url: 'https://perdiga.github.io',
     baseUrl: '/postura/',
-    organizationName: 'jackchuka',
+    organizationName: 'Perdiga',
     projectName: 'postura',
     onBrokenLinks: 'throw',
     markdown: {
@@ -25,7 +25,7 @@ const config: Config = {
                 docs: {
                     routeBasePath: '/',
                     sidebarPath: './sidebars.ts',
-                    editUrl: 'https://github.com/jackchuka/postura/tree/main/website/',
+                    editUrl: 'https://github.com/Perdiga/postura/tree/main/website/',
                 },
                 blog: false,
                 theme: {
@@ -40,7 +40,7 @@ const config: Config = {
             items: [
                 { type: 'docSidebar', sidebarId: 'docs', position: 'left', label: 'Documentation' },
                 {
-                    href: 'https://github.com/jackchuka/postura',
+                    href: 'https://github.com/Perdiga/postura',
                     label: 'GitHub',
                     position: 'right',
                 },
@@ -62,7 +62,7 @@ const config: Config = {
                     items: [
                         { label: 'Fact fields', to: '/reference/facts' },
                         { label: 'Permissions', to: '/reference/permissions' },
-                        { label: 'GitHub repository', href: 'https://github.com/jackchuka/postura' },
+                        { label: 'GitHub repository', href: 'https://github.com/Perdiga/postura' },
                     ],
                 },
             ],

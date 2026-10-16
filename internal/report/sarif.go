@@ -3,13 +3,13 @@ package report
 import (
 	"encoding/json"
 
-	"github.com/jackchuka/postura/internal/engine"
+	"github.com/Perdiga/postura/internal/engine"
 )
 
 // SARIF renders fail and unknown findings as a SARIF 2.1.0 log, uploadable to GitHub
 // code scanning and usable as an audit evidence artifact.
 func SARIF(fs []engine.Finding) ([]byte, error) {
-	driver := sarifDriver{Name: "postura", InformationURI: "https://github.com/jackchuka/postura"}
+	driver := sarifDriver{Name: "postura", InformationURI: "https://github.com/Perdiga/postura"}
 	var results []sarifResult
 	seenRule := map[string]bool{}
 

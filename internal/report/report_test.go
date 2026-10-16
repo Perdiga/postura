@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackchuka/postura/internal/engine"
+	"github.com/Perdiga/postura/internal/engine"
 )
 
 func TestShouldFail(t *testing.T) {
@@ -92,5 +92,15 @@ func TestSARIFIncludesPassingAssessmentEvidence(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "restore test passed") {
 		t.Fatalf("passing assessment evidence missing from SARIF: %s", data)
+	}
+}
+
+func TestSARIFProjectURL(t *testing.T) {
+	data, err := SARIF(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"informationUri": "https://github.com/Perdiga/postura"`) {
+		t.Fatalf("SARIF must link to the fork: %s", data)
 	}
 }

@@ -3,6 +3,10 @@
 # In a rule block, the reserved keys `enabled` (bool) and `severity` (string)
 # tune the rule itself; every other key is merged into the rule's `cfg`.
 
+maturity:
+  max_warnings_per_tier: 0 # failed/unknown warnings allowed per target in each tier
+  ignore_warnings: false # true ignores all warning blockers; keep the allowance at 0
+
 enterprises:
   acme-inc:
     ENT-3: { enabled: true } # require the IP allow list for this enterprise

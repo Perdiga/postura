@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackchuka/postura/internal/rules"
+	"github.com/Perdiga/postura/internal/rules"
 )
 
 func TestRunConfigTemplateEnterpriseOnly(t *testing.T) {

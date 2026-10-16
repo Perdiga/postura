@@ -21,6 +21,50 @@ type Config struct {
 	Orgs        map[string]map[string]map[string]any `yaml:"orgs"`
 	Repos       map[string]map[string]map[string]any `yaml:"repos"`
 	Assessments AssessmentConfig                     `yaml:"assessments"`
+	Maturity    MaturityPolicy                       `yaml:"maturity"`
+}
+
+type MaturityPolicy struct {
+	MaxWarningsPerTier int  `yaml:"max_warnings_per_tier"`
+	IgnoreWarnings     bool `yaml:"ignore_warnings"`
+}
+
+func (p *MaturityPolicy) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("maturity must be a mapping")
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key, value := node.Content[i].Value, node.Content[i+1]
+		switch key {
+		case "max_warnings_per_tier":
+			if value.Tag != "!!int" {
+				return fmt.Errorf("maturity.max_warnings_per_tier must be an integer")
+			}
+		case "ignore_warnings":
+			if value.Tag != "!!bool" {
+				return fmt.Errorf("maturity.ignore_warnings must be a boolean")
+			}
+		default:
+			return fmt.Errorf("unknown maturity setting %q", key)
+		}
+	}
+	type plain MaturityPolicy
+	var decoded plain
+	if err := node.Decode(&decoded); err != nil {
+		return err
+	}
+	*p = MaturityPolicy(decoded)
+	return p.Validate()
+}
+
+func (p MaturityPolicy) Validate() error {
+	if p.MaxWarningsPerTier < 0 {
+		return fmt.Errorf("maturity.max_warnings_per_tier must be non-negative")
+	}
+	if p.IgnoreWarnings && p.MaxWarningsPerTier != 0 {
+		return fmt.Errorf("maturity.ignore_warnings and a non-zero max_warnings_per_tier cannot be combined")
+	}
+	return nil
 }
 
 type AssessmentConfig struct {
@@ -52,6 +96,9 @@ func LoadConfig(data []byte) (*Config, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 	if err := c.Assessments.validate(); err != nil {
+		return nil, err
+	}
+	if err := c.Maturity.Validate(); err != nil {
 		return nil, err
 	}
 	return c, nil

@@ -36,7 +36,7 @@ Build the static site and catch broken links:
 npm run build
 ```
 
-The site is configured for GitHub Pages at `https://jackchuka.github.io/postura/`. Documentation examples should stay aligned with the Go CLI and the canonical YAML files in the repository's `examples/` directory.
+The site is configured for GitHub Pages at `https://perdiga.github.io/postura/`. Documentation examples should stay aligned with the Go CLI and the canonical YAML files in the repository's `examples/` directory.
 
 ## Contribution notes
 

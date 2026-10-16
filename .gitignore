@@ -1,4 +1,4 @@
 *.test
 dist/
 facts.json
-assessments/*
+assements/*

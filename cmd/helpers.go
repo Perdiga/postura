@@ -11,9 +11,9 @@ import (
 
 	"os"
 
-	"github.com/jackchuka/postura/internal/engine"
-	"github.com/jackchuka/postura/internal/report"
-	"github.com/jackchuka/postura/internal/rules"
+	"github.com/Perdiga/postura/internal/engine"
+	"github.com/Perdiga/postura/internal/report"
+	"github.com/Perdiga/postura/internal/rules"
 )
 
 // loadRuleset reads the ruleset from path. postura ships no built-in ruleset, so
@@ -173,7 +173,7 @@ func parseScopes(values []string, hasEnterprise, hasOrg bool) (scopeSet, error) 
 }
 
 // writeReport renders findings to w in the requested format.
-func writeReport(w io.Writer, findings []engine.Finding, format, scope string) error {
+func writeReport(w io.Writer, findings []engine.Finding, format, scope string, maturity rules.MaturityPolicy) error {
 	switch format {
 	case "md", "markdown":
 		_, _ = fmt.Fprint(w, report.Markdown(findings, scope))
@@ -190,7 +190,7 @@ func writeReport(w io.Writer, findings []engine.Finding, format, scope string) e
 		}
 		_, _ = fmt.Fprintln(w, string(b))
 	case "html":
-		b, err := report.HTML(findings, scope, time.Now())
+		b, err := report.HTML(findings, scope, time.Now(), maturity)
 		if err != nil {
 			return err
 		}

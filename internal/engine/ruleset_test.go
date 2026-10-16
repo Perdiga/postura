@@ -4,9 +4,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jackchuka/postura/internal/collect"
-	"github.com/jackchuka/postura/internal/engine"
-	"github.com/jackchuka/postura/internal/rules"
+	"github.com/Perdiga/postura/internal/collect"
+	"github.com/Perdiga/postura/internal/engine"
+	"github.com/Perdiga/postura/internal/rules"
 )
 
 // Every rule in the shipped example ruleset must compile under CEL against its

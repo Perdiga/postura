@@ -19,9 +19,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/jackchuka/postura/internal/version.Version={{.Version}}
-      - -X github.com/jackchuka/postura/internal/version.Commit={{.Commit}}
-      - -X github.com/jackchuka/postura/internal/version.BuildDate={{.Date}}
+      - -X github.com/Perdiga/postura/internal/version.Version={{.Version}}
+      - -X github.com/Perdiga/postura/internal/version.Commit={{.Commit}}
+      - -X github.com/Perdiga/postura/internal/version.BuildDate={{.Date}}
 
 changelog:
   sort: asc

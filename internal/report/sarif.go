@@ -28,9 +28,10 @@ func SARIF(fs []engine.Finding) ([]byte, error) {
 		}
 		lvl := level(f.Severity)
 		msg := f.Title
-		if f.Status == engine.StatusPass {
+		switch f.Status {
+		case engine.StatusPass:
 			lvl = "note"
-		} else if f.Status == engine.StatusUnknown {
+		case engine.StatusUnknown:
 			lvl = "note"
 			msg = "unknown: " + f.Title
 		}

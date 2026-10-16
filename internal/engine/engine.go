@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Perdiga/postura/internal/rules"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
-	"github.com/Perdiga/postura/internal/rules"
 )
 
 // Status is the outcome of evaluating one rule against one target.

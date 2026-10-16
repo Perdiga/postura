@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/go-github/v84/github"
 	"github.com/Perdiga/postura/internal/collect"
 	"github.com/Perdiga/postura/internal/rules"
+	"github.com/google/go-github/v84/github"
 	"github.com/spf13/cobra"
 )
 

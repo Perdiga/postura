@@ -106,6 +106,11 @@ go install github.com/Perdiga/postura@latest
 Or grab a prebuilt binary from [Releases](https://github.com/Perdiga/postura/releases)
 (Linux / macOS / Windows, amd64 + arm64).
 
+Each release archive includes the binary and the example `examples/rules.yaml`
+and `examples/config.yaml` files. The examples are also available as separate
+`rules.yaml` and `config.yaml` release downloads. Customize them for your
+organization before running an audit.
+
 ### Run in a Dev Container
 
 Open this repository in VS Code and run **Dev Containers: Reopen in Container** from
